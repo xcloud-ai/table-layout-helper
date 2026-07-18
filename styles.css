@@ -1,0 +1,25 @@
+﻿/* XU 表格布局助手 - styles.css */
+/* 插件设置面板样式 */
+
+.xu-th-tip {
+  padding: 12px 16px;
+  margin: 12px 0;
+  background: var(--background-secondary, #f8f9fa);
+  border-left: 4px solid var(--interactive-accent, #ff5000);
+  border-radius: 4px;
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--text-normal, #333);
+}
+
+.xu-th-tip code {
+  padding: 2px 6px;
+  background: var(--background-modifier-error, #ffe4d6);
+  border-radius: 3px;
+  font-family: var(--font-monospace, monospace);
+  font-size: 0.9em;
+}
+
+.xu-th-tip b {
+  color: var(--text-strong, #000);
+}

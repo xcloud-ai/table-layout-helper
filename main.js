@@ -1,5 +1,5 @@
-/*
- * Table Layout Helper - main.js
+﻿/*
+ * XU Table Layout Helper - main.js
  * Pure JavaScript implementation, no compilation needed
  *
  * Features:
@@ -67,7 +67,7 @@ const DEFAULT_SETTINGS = {
 
 function generateCSS(settings) {
   if (!settings.enabled) {
-    return "/* Table Layout Helper: disabled */";
+    return "/* XU Table Layout Helper: disabled */";
   }
 
   const css = [];
@@ -185,7 +185,7 @@ class TableLayoutHelperPlugin extends Plugin {
         this.saveSettings();
         this.injectStyle();
         new Notice(
-          `Table Layout Helper: ${this.settings.enabled ? "Enabled" : "Disabled"}`,
+          `XU Table Layout Helper: ${this.settings.enabled ? "Enabled" : "Disabled"}`,
           2000
         );
       },
@@ -196,7 +196,7 @@ class TableLayoutHelperPlugin extends Plugin {
       name: "Reload table style",
       callback: () => {
         this.injectStyle();
-        new Notice("Table Layout Helper: style reloaded", 2000);
+        new Notice("XU Table Layout Helper: style reloaded", 2000);
       },
     });
 
@@ -246,7 +246,7 @@ class TableLayoutHelperSettingTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
 
-    containerEl.createEl("h2", { text: "Table Layout Helper" });
+    containerEl.createEl("h2", { text: "XU Table Layout Helper" });
 
     // ---------- Basic ----------
     new Setting(containerEl)

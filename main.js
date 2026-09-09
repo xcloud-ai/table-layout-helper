@@ -79,6 +79,8 @@ const I18N = {
     setting_max_height_desc: "像素值（如 400px），留空为无限制。与 overflow=scroll 配合使用效果最佳",
     setting_sticky_header: "粘性表头",
     setting_sticky_header_desc: "滚动时表头固定在顶部（需配合最大高度 + overflow=scroll）",
+    setting_color_preset: "表格配色方案",
+    setting_color_preset_desc: "表头深色 + 斑马纹浅色行（自动适配深浅主题）；选择 Obsidian 默认则不配色，斑马纹设置恢复独立生效",
     // Settings - styling
     setting_zebra: "斑马纹",
     setting_zebra_desc: "交替行背景色",
@@ -154,6 +156,8 @@ const I18N = {
     setting_max_height_desc: "Pixel value (e.g. 400px), leave empty for no limit. Works best with overflow=scroll",
     setting_sticky_header: "Sticky header",
     setting_sticky_header_desc: "Header stays on top when scrolling (requires max height + overflow=scroll)",
+    setting_color_preset: "Table color preset",
+    setting_color_preset_desc: "Dark header + light zebra rows (auto-adapts to light/dark theme); choose Obsidian default to disable and let zebra settings work standalone",
     // Settings - styling
     setting_zebra: "Zebra stripes",
     setting_zebra_desc: "Alternating row background colors",
@@ -183,6 +187,43 @@ const I18N = {
   },
 };
 
+// Color presets: dark header + light zebra rows, light/dark theme aware.
+// Values follow data-table design practice: ~2-5% lightness delta between
+// zebra rows, header notably darker than rows in both themes.
+const COLOR_PRESETS = {
+  obsidian: { zh: "Obsidian 默认", en: "Obsidian default" },
+  slate: {
+    zh: "经典深灰", en: "Classic Slate",
+    th: "#212529", thColor: "#ffffff", even: "#f8f9fa",
+    darkTh: "#12171e", darkEven: "#202833",
+  },
+  blue: {
+    zh: "商务蓝", en: "Corporate Blue",
+    th: "#4361ee", thColor: "#ffffff", even: "#f0f4ff",
+    darkTh: "#1e2a5e", darkEven: "#1c2440",
+  },
+  green: {
+    zh: "松林绿", en: "Forest Green",
+    th: "#2e7d32", thColor: "#ffffff", even: "#f0f7f1",
+    darkTh: "#1b3a1e", darkEven: "#1c2b1e",
+  },
+  wine: {
+    zh: "酒红", en: "Burgundy",
+    th: "#8e3b46", thColor: "#ffffff", even: "#f9f1f2",
+    darkTh: "#3a1c20", darkEven: "#2b1c1e",
+  },
+  sand: {
+    zh: "暖砂", en: "Warm Sand",
+    th: "#8a6d3b", thColor: "#ffffff", even: "#faf6ee",
+    darkTh: "#33291a", darkEven: "#2a251c",
+  },
+  teal: {
+    zh: "青黛", en: "Teal",
+    th: "#0f766e", thColor: "#ffffff", even: "#eefafa",
+    darkTh: "#0b2f2c", darkEven: "#16282a",
+  },
+};
+
 const DEFAULT_SETTINGS = {
   enabled: true,
   language: "zh", // "zh" or "en"
@@ -206,6 +247,9 @@ const DEFAULT_SETTINGS = {
 
   // Sticky header
   stickyHeader: false,
+
+  // Color preset ("obsidian" = no color injection)
+  colorPreset: "obsidian",
 
   // Zebra stripes
   zebraStripes: false,
@@ -307,14 +351,35 @@ function generateCSS(settings) {
 }`);
   }
 
-  // 7. Zebra stripes
-  if (settings.zebraStripes) {
+  // 7. Zebra stripes (standalone; skipped when a color preset owns the palette)
+  if (settings.zebraStripes && settings.colorPreset === "obsidian") {
     css.push(`.markdown-preview-view table tr:nth-child(even), .markdown-source-view .cm-table-widget table tr:nth-child(even) {
   background: ${settings.zebraColor};
 }`);
   }
 
-  // 8. Link no-wrap
+  // 8. Color preset: dark header + light zebra rows, light/dark theme aware.
+  // Placed after sticky-header rules so the preset header color wins.
+  const preset = COLOR_PRESETS[settings.colorPreset];
+  if (preset && settings.colorPreset !== "obsidian") {
+    const rowSel = ".markdown-preview-view table tbody tr:nth-child(even), .markdown-source-view .cm-table-widget table tbody tr:nth-child(even)";
+    css.push(`${thSel} {
+  background: ${preset.th};
+  color: ${preset.thColor};
+}`);
+    css.push(`${rowSel} {
+  background: ${preset.even};
+}`);
+    css.push(`.theme-dark ${thSel} {
+  background: ${preset.darkTh};
+  color: ${preset.thColor};
+}`);
+    css.push(`.theme-dark ${rowSel} {
+  background: ${preset.darkEven};
+}`);
+  }
+
+  // 9. Link no-wrap
   if (settings.linkNoWrap) {
     css.push(`.markdown-preview-view table td:last-child a, .markdown-source-view .cm-table-widget table td:last-child a {
   white-space: nowrap;
@@ -621,6 +686,22 @@ class TableLayoutHelperSettingTab extends PluginSettingTab {
 
     // ---------- Styling ----------
     containerEl.createEl("h3", { text: this.t("sec_styling") });
+
+    new Setting(containerEl)
+      .setName(this.t("setting_color_preset"))
+      .setDesc(this.t("setting_color_preset_desc"))
+      .addDropdown((dropdown) => {
+        for (const [key, val] of Object.entries(COLOR_PRESETS)) {
+          dropdown.addOption(key, this.plugin.settings.language === "en" ? val.en : val.zh);
+        }
+        dropdown
+          .setValue(this.plugin.settings.colorPreset)
+          .onChange(async (value) => {
+            this.plugin.settings.colorPreset = value;
+            await this.plugin.saveSettings();
+            this.plugin.injectStyle();
+          });
+      });
 
     new Setting(containerEl)
       .setName(this.t("setting_zebra"))

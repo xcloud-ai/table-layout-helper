@@ -279,9 +279,11 @@ function generateCSS(settings) {
 
   // Selectors with high specificity to avoid !important
   const tableSel = ".markdown-preview-view table, .markdown-source-view .cm-table-widget table";
-  // th selector targets thead cells explicitly with high specificity so the
-  // whole header row gets one uniform background (avoids partial per-cell color).
-  const thSel = ".markdown-preview-view table thead tr th, .markdown-source-view.mod-cm6 .cm-table-widget table thead tr th";
+  // th selector targets thead cells explicitly with HIGH specificity in both
+  // views: themes style `th` with 2+ class selectors, which beats a
+  // single-class selector and caused partial per-cell header coloring in
+  // READING mode (edit mode had 3 classes so it always won) — fixed in 1.1.2.
+  const thSel = ".markdown-reading-view .markdown-preview-view table thead tr th, .markdown-preview-view.markdown-rendered table thead tr th, .markdown-source-view.mod-cm6 .cm-table-widget table thead tr th, .markdown-preview-view table thead tr th";
   const tdSel = ".markdown-preview-view table td, .markdown-source-view .cm-table-widget table td";
   const firstColSel = ".markdown-preview-view table th:first-child, .markdown-preview-view table td:first-child, .markdown-source-view .cm-table-widget table th:first-child, .markdown-source-view .cm-table-widget table td:first-child";
   const lastColSel = ".markdown-preview-view table th:last-child, .markdown-preview-view table td:last-child, .markdown-source-view .cm-table-widget table th:last-child, .markdown-source-view .cm-table-widget table td:last-child";

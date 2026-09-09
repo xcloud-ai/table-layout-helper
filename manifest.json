@@ -1,7 +1,7 @@
 {
   "id": "table-layout-helper",
   "name": "XU Table Layout Helper",
-  "version": "1.1.3",
+  "version": "1.1.4",
   "minAppVersion": "1.4.0",
   "description": "Customize table layout, column width, text wrapping, alignment, overflow, and sticky headers. Replaces hand-written CSS snippets.",
   "author": "旭说",

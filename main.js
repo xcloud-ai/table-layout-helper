@@ -39,6 +39,10 @@ const I18N = {
     notice_enabled: "已开启",
     notice_disabled: "已关闭",
     notice_reloaded: "样式已重新加载",
+    notice_reset: "设置已恢复为默认值",
+    setting_reset: "恢复默认设置",
+    setting_reset_desc: "将所有设置恢复为默认值",
+    btn_reset: "重置",
     // Settings - language
     setting_language: "界面语言",
     setting_language_desc: "选择设置面板的显示语言",
@@ -100,6 +104,10 @@ const I18N = {
     notice_enabled: "Enabled",
     notice_disabled: "Disabled",
     notice_reloaded: "style reloaded",
+    notice_reset: "Settings reset to defaults",
+    setting_reset: "Reset to defaults",
+    setting_reset_desc: "Restore all settings to default values",
+    btn_reset: "Reset",
     // Settings - language
     setting_language: "UI Language",
     setting_language_desc: "Select the display language for settings panel",
@@ -734,6 +742,26 @@ class TableLayoutHelperSettingTab extends PluginSettingTab {
             this.plugin.settings.borderCollapse = value;
             await this.plugin.saveSettings();
             this.plugin.injectStyle();
+          })
+      );
+
+    // ---------- Reset ----------
+    new Setting(containerEl)
+      .setName(this.t("setting_reset"))
+      .setDesc(this.t("setting_reset_desc"))
+      .addButton((button) =>
+        button
+          .setButtonText(this.t("btn_reset"))
+          .setWarning()
+          .onClick(async () => {
+            const savedLang = this.plugin.settings.language;
+            this.plugin.settings = Object.assign({}, DEFAULT_SETTINGS);
+            this.plugin.settings.language = savedLang;
+            await this.plugin.saveSettings();
+            this.plugin.injectStyle();
+            this.plugin.registerCommands();
+            this.display();
+            new Notice(this.t("notice_reset"), 2000);
           })
       );
   }

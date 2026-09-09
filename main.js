@@ -187,40 +187,42 @@ const I18N = {
   },
 };
 
-// Color presets: dark header + light zebra rows, light/dark theme aware.
-// Values follow data-table design practice: ~2-5% lightness delta between
-// zebra rows, header notably darker than rows in both themes.
+// Color presets — all values use Obsidian theme CSS variables so they
+// auto-adapt to light/dark themes and stay visually coherent with the
+// user's current theme (borrowed from quiet-outline's variable-only approach).
+// color-mix() is supported in Obsidian's embedded Chromium (≥v111).
 const COLOR_PRESETS = {
   obsidian: { zh: "Obsidian 默认", en: "Obsidian default" },
-  slate: {
-    zh: "经典深灰", en: "Classic Slate",
-    th: "#212529", thColor: "#ffffff", even: "#f8f9fa",
-    darkTh: "#12171e", darkEven: "#202833",
+  subtle: {
+    zh: "素雅（主题灰）", en: "Subtle (theme gray)",
+    headerBg: "var(--background-secondary)",
+    headerColor: "var(--text-normal)",
+    zebraBg: "var(--background-primary-alt)",
   },
-  blue: {
-    zh: "商务蓝", en: "Corporate Blue",
-    th: "#4361ee", thColor: "#ffffff", even: "#f0f4ff",
-    darkTh: "#1e2a5e", darkEven: "#1c2440",
+  accentSoft: {
+    zh: "主题色·浅", en: "Accent soft",
+    headerBg: "color-mix(in srgb, var(--interactive-accent) 28%, var(--background-secondary))",
+    headerColor: "var(--text-normal)",
+    zebraBg: "color-mix(in srgb, var(--interactive-accent) 7%, transparent)",
   },
-  green: {
-    zh: "松林绿", en: "Forest Green",
-    th: "#2e7d32", thColor: "#ffffff", even: "#f0f7f1",
-    darkTh: "#1b3a1e", darkEven: "#1c2b1e",
+  accentDeep: {
+    zh: "主题色·深", en: "Accent deep",
+    headerBg: "var(--interactive-accent)",
+    headerColor: "var(--text-on-accent)",
+    zebraBg: "color-mix(in srgb, var(--interactive-accent) 12%, transparent)",
   },
-  wine: {
-    zh: "酒红", en: "Burgundy",
-    th: "#8e3b46", thColor: "#ffffff", even: "#f9f1f2",
-    darkTh: "#3a1c20", darkEven: "#2b1c1e",
+  warm: {
+    zh: "暖调", en: "Warm",
+    headerBg: "var(--background-modifier-hover)",
+    headerColor: "var(--text-normal)",
+    zebraBg: "var(--background-primary-alt)",
   },
-  sand: {
-    zh: "暖砂", en: "Warm Sand",
-    th: "#8a6d3b", thColor: "#ffffff", even: "#faf6ee",
-    darkTh: "#33291a", darkEven: "#2a251c",
-  },
-  teal: {
-    zh: "青黛", en: "Teal",
-    th: "#0f766e", thColor: "#ffffff", even: "#eefafa",
-    darkTh: "#0b2f2c", darkEven: "#16282a",
+  underline: {
+    zh: "底线强调", en: "Underline accent",
+    headerBg: "var(--background-secondary)",
+    headerColor: "var(--text-normal)",
+    zebraBg: "var(--background-primary-alt)",
+    headerBorder: "2px solid var(--interactive-accent)",
   },
 };
 
@@ -277,7 +279,9 @@ function generateCSS(settings) {
 
   // Selectors with high specificity to avoid !important
   const tableSel = ".markdown-preview-view table, .markdown-source-view .cm-table-widget table";
-  const thSel = ".markdown-preview-view table th, .markdown-source-view .cm-table-widget table th";
+  // th selector targets thead cells explicitly with high specificity so the
+  // whole header row gets one uniform background (avoids partial per-cell color).
+  const thSel = ".markdown-preview-view table thead tr th, .markdown-source-view.mod-cm6 .cm-table-widget table thead tr th";
   const tdSel = ".markdown-preview-view table td, .markdown-source-view .cm-table-widget table td";
   const firstColSel = ".markdown-preview-view table th:first-child, .markdown-preview-view table td:first-child, .markdown-source-view .cm-table-widget table th:first-child, .markdown-source-view .cm-table-widget table td:first-child";
   const lastColSel = ".markdown-preview-view table th:last-child, .markdown-preview-view table td:last-child, .markdown-source-view .cm-table-widget table th:last-child, .markdown-source-view .cm-table-widget table td:last-child";
@@ -341,41 +345,33 @@ function generateCSS(settings) {
 }`);
   }
 
-  // 6. Sticky header
+  // 6. Sticky header (do NOT set background here — color preset owns it)
   if (settings.stickyHeader) {
     css.push(`${thSel} {
   position: sticky;
   top: 0;
   z-index: 10;
-  background: var(--background-secondary, #f8f9fa);
 }`);
   }
 
   // 7. Zebra stripes (standalone; skipped when a color preset owns the palette)
   if (settings.zebraStripes && settings.colorPreset === "obsidian") {
-    css.push(`.markdown-preview-view table tr:nth-child(even), .markdown-source-view .cm-table-widget table tr:nth-child(even) {
-  background: ${settings.zebraColor};
+    css.push(`.markdown-preview-view table tbody tr:nth-child(even) td, .markdown-source-view .cm-table-widget table tbody tr:nth-child(even) td {
+  background-color: ${settings.zebraColor};
 }`);
   }
 
-  // 8. Color preset: dark header + light zebra rows, light/dark theme aware.
-  // Placed after sticky-header rules so the preset header color wins.
+  // 8. Color preset — theme-variable based, whole header row uniform.
   const preset = COLOR_PRESETS[settings.colorPreset];
   if (preset && settings.colorPreset !== "obsidian") {
-    const rowSel = ".markdown-preview-view table tbody tr:nth-child(even), .markdown-source-view .cm-table-widget table tbody tr:nth-child(even)";
+    const zebraSel = ".markdown-preview-view table tbody tr:nth-child(even) td, .markdown-source-view.mod-cm6 .cm-table-widget table tbody tr:nth-child(even) td";
     css.push(`${thSel} {
-  background: ${preset.th};
-  color: ${preset.thColor};
+  background-color: ${preset.headerBg};
+  color: ${preset.headerColor};
+  ${preset.headerBorder ? `border-bottom: ${preset.headerBorder};` : ""}
 }`);
-    css.push(`${rowSel} {
-  background: ${preset.even};
-}`);
-    css.push(`.theme-dark ${thSel} {
-  background: ${preset.darkTh};
-  color: ${preset.thColor};
-}`);
-    css.push(`.theme-dark ${rowSel} {
-  background: ${preset.darkEven};
+    css.push(`${zebraSel} {
+  background-color: ${preset.zebraBg};
 }`);
   }
 

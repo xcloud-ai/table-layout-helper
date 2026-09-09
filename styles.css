@@ -1,25 +1,38 @@
-﻿/* XU 表格布局助手 - styles.css */
-/* 插件设置面板样式 */
+/* ================================================================
+   XU Table Layout Helper - column resize handles
+   ================================================================ */
 
-.xu-th-tip {
-  padding: 12px 16px;
-  margin: 12px 0;
-  background: var(--background-secondary, #f8f9fa);
-  border-left: 4px solid var(--interactive-accent, #ff5000);
-  border-radius: 4px;
-  font-size: 14px;
-  line-height: 1.8;
-  color: var(--text-normal, #333);
+/* Drag handle: invisible strip on the right edge of first-row cells;
+   highlighted with the theme accent color on hover / while dragging */
+.tlh-col-resizer {
+	position: absolute;
+	top: 0;
+	right: -4px;
+	bottom: 0;
+	width: 8px;
+	cursor: col-resize;
+	z-index: 5;
 }
 
-.xu-th-tip code {
-  padding: 2px 6px;
-  background: var(--background-modifier-error, #ffe4d6);
-  border-radius: 3px;
-  font-family: var(--font-monospace, monospace);
-  font-size: 0.9em;
+.tlh-col-resizer::after {
+	content: "";
+	position: absolute;
+	top: 0;
+	right: 3px;
+	bottom: 0;
+	width: 2px;
+	background: transparent;
 }
 
-.xu-th-tip b {
-  color: var(--text-strong, #000);
+.markdown-preview-view table th:hover > .tlh-col-resizer::after,
+.markdown-preview-view table td:hover > .tlh-col-resizer::after,
+.markdown-source-view .cm-table-widget table th:hover > .tlh-col-resizer::after,
+.markdown-source-view .cm-table-widget table td:hover > .tlh-col-resizer::after,
+body.tlh-resizing .tlh-col-resizer::after {
+	background: var(--interactive-accent);
+}
+
+/* Prevent text selection while dragging */
+body.tlh-resizing {
+	user-select: none;
 }

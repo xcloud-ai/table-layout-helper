@@ -5,23 +5,23 @@
  * Features:
  *   1. Custom table layout (fixed / auto)
  *   2. Table width control (100% / custom / auto)
- *   3. Column width: first column fixed, others auto
- *   4. Text wrapping: nowrap / break-word / break-all
- *   5. Vertical alignment: top / middle / bottom
- *   6. Custom line height
- *   7. Overflow control: visible / hidden / scroll / auto
- *   8. Max height with scroll
- *   9. Sticky header
- *   10. Zebra stripes
- *   11. Link no-wrap
- *   12. Border control
+ *   3. Column width: first column fixed
+ *   4. Vertical alignment: top / middle / bottom
+ *   5. Custom line height
+ *   6. Header style: first row and/or first column as header
+ *       (independent toggles), bold by default, optional text color
+ *   7. Column resize: drag the right edge of any header cell, or
+ *       double-click the edge to type an exact width; widths persist
+ *       per table in plugin data and are restored on reopen
  *
  * Implementation: Dynamic <style> injection into document.head
  * No !important used — overrides via selector specificity
+ * No border/color injection except the optional header text color —
+ * tables keep Obsidian's native theme look
  * Bilingual UI (Chinese / English) with language switcher
  */
 
-const { Plugin, Notice, PluginSettingTab, Setting } = require("obsidian");
+const { Plugin, Notice, PluginSettingTab, Setting, Modal } = require("obsidian");
 
 const PLUGIN_ID = "table-layout-helper";
 const STYLE_ID = "table-layout-helper-style";
@@ -52,9 +52,14 @@ const I18N = {
     sec_table_layout: "表格布局",
     sec_column_width: "列宽",
     sec_alignment: "对齐与行高",
-    sec_overflow: "溢出控制",
-    sec_styling: "样式",
-    sec_border: "边框",
+    sec_header_style: "表头样式",
+    sec_advanced: "高级",
+    setting_first_row_header: "首行作为表头",
+    setting_first_row_header_desc: "横向表头：样式应用于首行",
+    setting_first_col_header: "首列作为表头",
+    setting_first_col_header_desc: "纵向表头：样式应用于首列（可与首行同时开启）",
+    setting_header_color: "表头颜色",
+    setting_header_color_desc: "表头文字颜色，留空跟随主题；表头默认加粗",
     // Settings - table layout
     setting_table_layout: "表格布局模式",
     setting_table_layout_desc: "fixed = 固定列宽（推荐），auto = 自动列宽",
@@ -63,38 +68,21 @@ const I18N = {
     // Settings - column width
     setting_first_col_width: "首列宽度",
     setting_first_col_width_desc: "像素值（如 200），留空为自动",
-    setting_first_col_nowrap: "首列不换行",
-    setting_first_col_nowrap_desc: "防止首列文字换行（适合标签列）",
-    setting_content_wrap: "内容列换行模式",
-    setting_content_wrap_desc: "break-word（推荐）/ break-all / normal",
     // Settings - alignment
     setting_vertical_align: "垂直对齐",
     setting_vertical_align_desc: "单元格内容的垂直对齐方式",
     setting_line_height: "行高",
     setting_line_height_desc: "单元格文字行高（如 1.6）",
-    // Settings - overflow
-    setting_overflow_mode: "溢出模式",
-    setting_overflow_mode_desc: "visible / hidden / scroll / auto",
-    setting_max_height: "最大高度",
-    setting_max_height_desc: "像素值（如 400px），留空为无限制。与 overflow=scroll 配合使用效果最佳",
-    setting_sticky_header: "粘性表头",
-    setting_sticky_header_desc: "滚动时表头固定在顶部（需配合最大高度 + overflow=scroll）",
-    setting_color_preset: "表格配色方案",
-    setting_color_preset_desc: "表头深色 + 斑马纹浅色行（自动适配深浅主题）；选择 Obsidian 默认则不配色，斑马纹设置恢复独立生效",
-    // Settings - styling
-    setting_zebra: "斑马纹",
-    setting_zebra_desc: "交替行背景色",
-    setting_zebra_color: "斑马纹颜色",
-    setting_zebra_color_desc: "偶数行背景色",
-    setting_link_nowrap: "链接不换行",
-    setting_link_nowrap_desc: "防止表格中的链接换行",
-    // Settings - border
-    setting_border_width: "边框宽度",
-    setting_border_width_desc: "像素值，0 = 无边框",
-    setting_border_color: "边框颜色",
-    setting_border_color_desc: "边框颜色",
-    setting_border_collapse: "边框合并",
-    setting_border_collapse_desc: "collapse / separate",
+    // Column resize
+    cmd_clear_widths: "清除本文件的表格列宽",
+    notice_no_widths: "本文件没有已保存的列宽",
+    notice_widths_cleared: "已清除本文件的表格列宽",
+    sec_col_resize: "列宽拖拽",
+    setting_min_col_width: "拖拽最小列宽",
+    setting_min_col_width_desc: "拖拽/输入列宽的下限（像素）",
+    modal_title: "设置列宽",
+    modal_desc: "输入该列的宽度（像素）",
+    modal_apply: "应用",
   },
   en: {
     // Commands
@@ -117,9 +105,14 @@ const I18N = {
     sec_table_layout: "Table Layout",
     sec_column_width: "Column Width",
     sec_alignment: "Alignment & Line Height",
-    sec_overflow: "Overflow Control",
-    sec_styling: "Styling",
-    sec_border: "Border",
+    sec_header_style: "Header Style",
+    sec_advanced: "Advanced",
+    setting_first_row_header: "First row as header",
+    setting_first_row_header_desc: "Horizontal header: style applies to the first row",
+    setting_first_col_header: "First column as header",
+    setting_first_col_header_desc: "Vertical header: style applies to the first column (can be combined with first row)",
+    setting_header_color: "Header color",
+    setting_header_color_desc: "Header text color, leave empty to follow theme; header is bold by default",
     // Settings - table layout
     setting_table_layout: "Table layout mode",
     setting_table_layout_desc: "fixed = fixed column width (recommended), auto = auto column width",
@@ -128,77 +121,21 @@ const I18N = {
     // Settings - column width
     setting_first_col_width: "First column width",
     setting_first_col_width_desc: "Pixel value (e.g. 200), leave empty for auto",
-    setting_first_col_nowrap: "First column no-wrap",
-    setting_first_col_nowrap_desc: "Prevent first column text from wrapping (good for label columns)",
-    setting_content_wrap: "Content column wrap mode",
-    setting_content_wrap_desc: "break-word (recommended) / break-all / normal",
     // Settings - alignment
     setting_vertical_align: "Vertical alignment",
     setting_vertical_align_desc: "Vertical alignment of cell content",
     setting_line_height: "Line height",
     setting_line_height_desc: "Cell text line height (e.g. 1.6)",
-    // Settings - overflow
-    setting_overflow_mode: "Overflow mode",
-    setting_overflow_mode_desc: "visible / hidden / scroll / auto",
-    setting_max_height: "Max height",
-    setting_max_height_desc: "Pixel value (e.g. 400px), leave empty for no limit. Works best with overflow=scroll",
-    setting_sticky_header: "Sticky header",
-    setting_sticky_header_desc: "Header stays on top when scrolling (requires max height + overflow=scroll)",
-    setting_color_preset: "Table color preset",
-    setting_color_preset_desc: "Dark header + light zebra rows (auto-adapts to light/dark theme); choose Obsidian default to disable and let zebra settings work standalone",
-    // Settings - styling
-    setting_zebra: "Zebra stripes",
-    setting_zebra_desc: "Alternating row background colors",
-    setting_zebra_color: "Zebra color",
-    setting_zebra_color_desc: "Even row background color",
-    setting_link_nowrap: "Link no-wrap",
-    setting_link_nowrap_desc: "Prevent links in tables from wrapping",
-    // Settings - border
-    setting_border_width: "Border width",
-    setting_border_width_desc: "Pixel value, 0 = no border",
-    setting_border_color: "Border color",
-    setting_border_color_desc: "Border color",
-    setting_border_collapse: "Border collapse",
-    setting_border_collapse_desc: "collapse / separate",
-  },
-};
-
-// Color presets — all values use Obsidian theme CSS variables so they
-// auto-adapt to light/dark themes and stay visually coherent with the
-// user's current theme (borrowed from quiet-outline's variable-only approach).
-// color-mix() is supported in Obsidian's embedded Chromium (≥v111).
-const COLOR_PRESETS = {
-  obsidian: { zh: "Obsidian 默认", en: "Obsidian default" },
-  subtle: {
-    zh: "素雅（主题灰）", en: "Subtle (theme gray)",
-    headerBg: "var(--background-secondary)",
-    headerColor: "var(--text-normal)",
-    zebraBg: "var(--background-primary-alt)",
-  },
-  accentSoft: {
-    zh: "主题色·浅", en: "Accent soft",
-    headerBg: "color-mix(in srgb, var(--interactive-accent) 28%, var(--background-secondary))",
-    headerColor: "var(--text-normal)",
-    zebraBg: "color-mix(in srgb, var(--interactive-accent) 7%, transparent)",
-  },
-  accentDeep: {
-    zh: "主题色·深", en: "Accent deep",
-    headerBg: "var(--interactive-accent)",
-    headerColor: "var(--text-on-accent)",
-    zebraBg: "color-mix(in srgb, var(--interactive-accent) 12%, transparent)",
-  },
-  warm: {
-    zh: "暖调", en: "Warm",
-    headerBg: "var(--background-modifier-hover)",
-    headerColor: "var(--text-normal)",
-    zebraBg: "var(--background-primary-alt)",
-  },
-  underline: {
-    zh: "底线强调", en: "Underline accent",
-    headerBg: "var(--background-secondary)",
-    headerColor: "var(--text-normal)",
-    zebraBg: "var(--background-primary-alt)",
-    headerBorder: "2px solid var(--interactive-accent)",
+    // Column resize
+    cmd_clear_widths: "Clear table column widths for this file",
+    notice_no_widths: "No saved column widths for this file",
+    notice_widths_cleared: "Column widths cleared for this file",
+    sec_col_resize: "Column Resize",
+    setting_min_col_width: "Minimum column width",
+    setting_min_col_width_desc: "Lower limit (px) for drag/input resizing",
+    modal_title: "Set column width",
+    modal_desc: "Enter the width of this column in pixels",
+    modal_apply: "Apply",
   },
 };
 
@@ -212,34 +149,20 @@ const DEFAULT_SETTINGS = {
 
   // First column
   firstColumnWidth: "200",
-  firstColumnWrap: false,
 
-  // Content columns
-  contentColumnWrap: "break-word",
-  verticalAlign: "top",
-  lineHeight: "1.6",
+  // Cells
+  verticalAlign: "middle",
+  lineHeight: "1.3",
 
-  // Overflow
-  overflowMode: "visible",
-  maxHeight: "",
+  // Header style (first row and/or first column, independent toggles;
+  // bold is always on, headerColor "" = follow theme)
+  firstRowHeader: true,
+  firstColumnHeader: false,
+  headerColor: "#ff4d00",
 
-  // Sticky header
-  stickyHeader: false,
-
-  // Color preset ("obsidian" = no color injection)
-  colorPreset: "obsidian",
-
-  // Zebra stripes
-  zebraStripes: false,
-  zebraColor: "#f8f9fa",
-
-  // Link no-wrap
-  linkNoWrap: true,
-
-  // Border
-  borderWidth: "1",
-  borderColor: "#e8e8e8",
-  borderCollapse: "collapse",
+  // Column resize (drag / double-click input); widths live in
+  // this.tableWidths (saved alongside settings, see loadSettings)
+  minColWidth: 40,
 };
 
 // ================================================================
@@ -256,21 +179,20 @@ function generateCSS(settings) {
   // Selectors with high specificity to avoid !important
   const tableSel = ".markdown-preview-view table, .markdown-source-view .cm-table-widget table";
   // th selector targets thead cells explicitly with HIGH specificity in both
-  // views: themes style `th` with 2+ class selectors, which beats a
-  // single-class selector and caused partial per-cell header coloring in
-  // READING mode (edit mode had 3 classes so it always won) — fixed in 1.1.2.
+  // views so theme styles cannot beat a single-class selector (fixed in 1.1.2).
   const thSel = ".markdown-reading-view .markdown-preview-view table thead tr th, .markdown-preview-view.markdown-rendered table thead tr th, .markdown-source-view.mod-cm6 .cm-table-widget table thead tr th, .markdown-preview-view table thead tr th";
   const tdSel = ".markdown-preview-view table td, .markdown-source-view .cm-table-widget table td";
   const firstColSel = ".markdown-preview-view table th:first-child, .markdown-preview-view table td:first-child, .markdown-source-view .cm-table-widget table th:first-child, .markdown-source-view .cm-table-widget table td:first-child";
-  const lastColSel = ".markdown-preview-view table th:last-child, .markdown-preview-view table td:last-child, .markdown-source-view .cm-table-widget table th:last-child, .markdown-source-view .cm-table-widget table td:last-child";
+  // Column header selector: every first-child cell (th & td) in both views,
+  // with HIGH specificity so theme th styles cannot beat it (same rationale
+  // as thSel, fixed in 1.1.2).
+  const colHeaderSel = ".markdown-reading-view .markdown-preview-view table tr > th:first-child, .markdown-reading-view .markdown-preview-view table tr > td:first-child, .markdown-preview-view.markdown-rendered table tr > th:first-child, .markdown-preview-view.markdown-rendered table tr > td:first-child, .markdown-source-view.mod-cm6 .cm-table-widget table tr > th:first-child, .markdown-source-view.mod-cm6 .cm-table-widget table tr > td:first-child, .markdown-preview-view table th:first-child, .markdown-preview-view table td:first-child, .markdown-source-view .cm-table-widget table th:first-child, .markdown-source-view .cm-table-widget table td:first-child";
 
-  // 1. Table layout
+  // 1. Table layout (no border rules — tables keep Obsidian's native borders)
   const tableWidth = settings.tableWidth || "100%";
   css.push(`${tableSel} {
   table-layout: ${settings.tableLayout};
   width: ${tableWidth};
-  border-collapse: ${settings.borderCollapse};
-  ${settings.borderWidth > 0 ? `border: ${settings.borderWidth}px solid ${settings.borderColor};` : ""}
 }`);
 
   // 2. Cell styles
@@ -278,85 +200,38 @@ function generateCSS(settings) {
     `vertical-align: ${settings.verticalAlign};`,
     `line-height: ${settings.lineHeight};`,
   ];
-  if (settings.borderWidth > 0) {
-    cellStyles.push(`border: ${settings.borderWidth}px solid ${settings.borderColor};`);
-  }
   css.push(`${thSel}, ${tdSel} {
   ${cellStyles.join("\n  ")}
 }`);
 
-  // 3. First column
-  const firstColStyles = [];
+  // 3. First column width (text wrapping follows Obsidian native behavior)
   if (settings.firstColumnWidth) {
-    firstColStyles.push(`width: ${settings.firstColumnWidth}px;`);
-  }
-  firstColStyles.push(`white-space: ${settings.firstColumnWrap ? "normal" : "nowrap"};`);
-  css.push(`${firstColSel} {
-  ${firstColStyles.join("\n  ")}
+    css.push(`${firstColSel} {
+  width: ${settings.firstColumnWidth}px;
 }`);
+  }
 
-  // 4. Content columns (last column)
-  const contentColStyles = [`width: auto;`];
-  if (settings.contentColumnWrap === "break-word") {
-    contentColStyles.push("word-break: break-word;");
-  } else if (settings.contentColumnWrap === "break-all") {
-    contentColStyles.push("word-break: break-all;");
+  // 4. Header style: bold by default + optional text color, applied to the
+  // first row and/or first column (independent toggles, can be combined).
+  // Obsidian themes render thead th bold natively, so when the first row is
+  // NOT designated as header we force font-weight: normal to undo it.
+  const headerDecls = ["font-weight: bold;"];
+  if (settings.headerColor) {
+    headerDecls.push(`color: ${settings.headerColor};`);
+  }
+  const decls = headerDecls.join("\n  ");
+  if (settings.firstRowHeader) {
+    css.push(`${thSel} {
+  ${decls}
+}`);
   } else {
-    contentColStyles.push("word-break: normal;");
-  }
-  css.push(`${lastColSel} {
-  ${contentColStyles.join("\n  ")}
-}`);
-
-  // 5. Overflow
-  if (settings.overflowMode !== "visible" || settings.maxHeight) {
-    const wrapperSel = ".markdown-preview-view .tlh-table-wrapper, .markdown-source-view .cm-table-widget .tlh-table-wrapper";
-    const wrapperStyles = [];
-    if (settings.overflowMode !== "visible") {
-      wrapperStyles.push(`overflow: ${settings.overflowMode};`);
-    }
-    if (settings.maxHeight) {
-      wrapperStyles.push(`max-height: ${settings.maxHeight};`);
-    }
-    css.push(`${wrapperSel} {
-  ${wrapperStyles.join("\n  ")}
-}`);
-  }
-
-  // 6. Sticky header (do NOT set background here — color preset owns it)
-  if (settings.stickyHeader) {
     css.push(`${thSel} {
-  position: sticky;
-  top: 0;
-  z-index: 10;
+  font-weight: normal;
 }`);
   }
-
-  // 7. Zebra stripes (standalone; skipped when a color preset owns the palette)
-  if (settings.zebraStripes && settings.colorPreset === "obsidian") {
-    css.push(`.markdown-preview-view table tbody tr:nth-child(even) td, .markdown-source-view .cm-table-widget table tbody tr:nth-child(even) td {
-  background-color: ${settings.zebraColor};
-}`);
-  }
-
-  // 8. Color preset — theme-variable based, whole header row uniform.
-  const preset = COLOR_PRESETS[settings.colorPreset];
-  if (preset && settings.colorPreset !== "obsidian") {
-    const zebraSel = ".markdown-preview-view table tbody tr:nth-child(even) td, .markdown-source-view.mod-cm6 .cm-table-widget table tbody tr:nth-child(even) td";
-    css.push(`${thSel} {
-  background-color: ${preset.headerBg};
-  color: ${preset.headerColor};
-  ${preset.headerBorder ? `border-bottom: ${preset.headerBorder};` : ""}
-}`);
-    css.push(`${zebraSel} {
-  background-color: ${preset.zebraBg};
-}`);
-  }
-
-  // 9. Link no-wrap
-  if (settings.linkNoWrap) {
-    css.push(`.markdown-preview-view table td:last-child a, .markdown-source-view .cm-table-widget table td:last-child a {
-  white-space: nowrap;
+  if (settings.firstColumnHeader) {
+    css.push(`${colHeaderSel} {
+  ${decls}
 }`);
   }
 
@@ -380,6 +255,24 @@ class TableLayoutHelperPlugin extends Plugin {
   async onload() {
     await this.loadSettings();
     this.injectStyle();
+
+    // Column resize: attach drag handles to every rendered table
+    // (reading view + live preview widgets) and restore saved widths.
+    // The table's source line anchor is captured synchronously from the
+    // section info — DOM position cannot be used because live preview
+    // only renders tables inside the viewport (virtualized editor).
+    this.registerMarkdownPostProcessor((el, ctx) => {
+      if (!this.settings.enabled) return;
+      const info =
+        typeof ctx.getSectionInfo === "function"
+          ? ctx.getSectionInfo(el)
+          : null;
+      const lineStart = info ? info.lineStart : null;
+      const tables = el.querySelectorAll("table");
+      for (const table of Array.from(tables)) {
+        this.attachResizeHandles(table, ctx.sourcePath || "", lineStart);
+      }
+    });
 
     // Commands (names use i18n, re-registered on language change)
     this.registerCommands();
@@ -412,6 +305,16 @@ class TableLayoutHelperPlugin extends Plugin {
         new Notice(`XU Table Layout Helper: ${this.t("notice_reloaded")}`, 2000);
       },
     });
+
+    this.addCommand({
+      id: "clear-column-widths",
+      name: this.t("cmd_clear_widths"),
+      checkCallback: (checking) => {
+        const file = this.app.workspace.getActiveFile();
+        if (checking) return !!file;
+        this.clearFileWidths(file);
+      },
+    });
   }
 
   onunload() {
@@ -432,11 +335,255 @@ class TableLayoutHelperPlugin extends Plugin {
   }
 
   async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    const data = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    this.tableWidths = data.tableWidths || {};
+    delete data.tableWidths;
+    this.settings = data;
   }
 
   async saveSettings() {
-    await this.saveData(this.settings);
+    await this.saveData(
+      Object.assign({}, this.settings, { tableWidths: this.tableWidths })
+    );
+  }
+
+  // ================================================================
+  //  Column resize (drag header edges / double-click to type width)
+  // ================================================================
+
+  // Stable table fingerprint: file path + source line anchor + column count
+  // + header text hash. Row count is intentionally excluded so adding/
+  // removing rows keeps the same ID (same approach as obsidian-table-resizer).
+  // The line anchor disambiguates tables with identical/empty headers and is
+  // independent of what is currently rendered (live preview virtualizes the
+  // editor, so DOM-based ordinals are unreliable).
+  getTableId(table, sourcePath, lineStart) {
+    const firstRow = table.querySelector("tr");
+    const cells = firstRow ? firstRow.querySelectorAll("th, td") : [];
+    const parts = [];
+    for (const cell of cells) {
+      parts.push((cell.textContent || "").trim().substring(0, 30));
+    }
+    const hash = parts.join("|").replace(/[^a-zA-Z0-9一-龥|]/g, "_");
+    const anchor =
+      lineStart === null || lineStart === undefined ? "x" : `L${lineStart}`;
+    return `w:${sourcePath}:${anchor}:${cells.length}:${hash}`;
+  }
+
+  attachResizeHandles(table, sourcePath, lineStart) {
+    if (table.dataset.tlhResized === "1") return;
+    table.dataset.tlhResized = "1";
+
+    const id = this.getTableId(table, sourcePath, lineStart);
+    table.dataset.tlhTableId = id;
+    this.applyStoredWidths(table, id);
+    this.addResizeHandles(table, id);
+  }
+
+  addResizeHandles(table, id) {
+    const firstRow = table.querySelector("tr");
+    if (!firstRow) return;
+    const cells = firstRow.querySelectorAll("th, td");
+    const minW = Number(this.settings.minColWidth) || 40;
+
+    for (let i = 0; i < cells.length; i++) {
+      const cell = cells[i];
+      cell.style.position = "relative";
+      const handle = document.createElement("div");
+      handle.className = "tlh-col-resizer";
+      handle.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.startColDrag(e, table, i, minW, id);
+      });
+      handle.addEventListener("dblclick", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        new ColumnWidthModal(this.app, table, i, id, this).open();
+      });
+      cell.appendChild(handle);
+    }
+  }
+
+  startColDrag(e, table, colIndex, minW, id) {
+    const firstRow = table.querySelector("tr");
+    const cell = firstRow && firstRow.querySelectorAll("th, td")[colIndex];
+    if (!cell) return;
+    const startX = e.clientX;
+    const startW = cell.offsetWidth || 100;
+    document.body.classList.add("tlh-resizing");
+
+    const onMove = (ev) => {
+      this.setColWidth(
+        table,
+        colIndex,
+        Math.max(minW, startW + ev.clientX - startX)
+      );
+    };
+    const onUp = () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      document.body.classList.remove("tlh-resizing");
+      this.storeTableWidths(table, id);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }
+
+  // Width application prefers colgroup <col> (Obsidian renders one per
+  // column in both views); falls back to every cell when colgroup missing.
+  setColWidth(table, colIndex, px) {
+    table.style.tableLayout = "fixed";
+    const col = table.querySelectorAll("colgroup col")[colIndex];
+    if (col) {
+      col.style.width = px + "px";
+      col.style.minWidth = px + "px";
+      col.style.maxWidth = px + "px";
+      return;
+    }
+    const rows = table.querySelectorAll("tr");
+    for (const row of rows) {
+      const c = row.querySelectorAll("th, td")[colIndex];
+      if (c) {
+        c.style.width = px + "px";
+        c.style.minWidth = px + "px";
+        c.style.maxWidth = px + "px";
+      }
+    }
+  }
+
+  storeTableWidths(table, id) {
+    const cols = table.querySelectorAll("colgroup col");
+    const map = {};
+    if (cols.length > 0) {
+      cols.forEach((col, i) => {
+        const w = parseInt(col.style.width, 10);
+        if (!Number.isNaN(w)) map[i] = w;
+      });
+    } else {
+      const firstRow = table.querySelector("tr");
+      const cells = firstRow ? firstRow.querySelectorAll("th, td") : [];
+      cells.forEach((cell, i) => {
+        const w = parseInt(cell.style.width, 10);
+        if (!Number.isNaN(w)) map[i] = w;
+      });
+    }
+    if (Object.keys(map).length === 0) {
+      delete this.tableWidths[id];
+    } else {
+      this.tableWidths[id] = map;
+    }
+    this.saveWidthsDebounced();
+  }
+
+  applyStoredWidths(table, id) {
+    const stored = this.tableWidths[id];
+    if (!stored) return;
+    table.style.tableLayout = "fixed";
+    for (const idx of Object.keys(stored)) {
+      this.setColWidth(table, Number(idx), stored[idx]);
+    }
+  }
+
+  saveWidthsDebounced() {
+    if (this.widthSaveTimer) clearTimeout(this.widthSaveTimer);
+    this.widthSaveTimer = window.setTimeout(() => {
+      this.widthSaveTimer = null;
+      this.saveData(
+        Object.assign({}, this.settings, { tableWidths: this.tableWidths })
+      );
+    }, 500);
+  }
+
+  async clearFileWidths(file) {
+    if (!file) return;
+    const prefix = `w:${file.path}:`;
+    const ids = Object.keys(this.tableWidths).filter((id) =>
+      id.startsWith(prefix)
+    );
+    if (ids.length === 0) {
+      new Notice(this.t("notice_no_widths"), 2000);
+      return;
+    }
+    for (const id of ids) {
+      delete this.tableWidths[id];
+    }
+    await this.saveData(
+      Object.assign({}, this.settings, { tableWidths: this.tableWidths })
+    );
+    // Clear inline widths on the currently rendered tables of this file
+    for (const leaf of this.app.workspace.getLeavesOfType("markdown")) {
+      const view = leaf.view;
+      const f = view && view.file;
+      if (!f || f.path !== file.path || !view.contentEl) continue;
+      const tables = view.contentEl.querySelectorAll("table");
+      for (const table of tables) {
+        if (!(table.dataset.tlhTableId || "").startsWith(prefix)) continue;
+        for (const col of table.querySelectorAll("colgroup col")) {
+          col.style.width = "";
+          col.style.minWidth = "";
+          col.style.maxWidth = "";
+        }
+        for (const c of table.querySelectorAll("th, td")) {
+          c.style.width = "";
+          c.style.minWidth = "";
+          c.style.maxWidth = "";
+        }
+        table.style.tableLayout = "";
+      }
+    }
+    new Notice(this.t("notice_widths_cleared"), 2000);
+  }
+}
+
+// ================================================================
+//  Column Width Modal (double-click a resize handle)
+// ================================================================
+
+class ColumnWidthModal extends Modal {
+  constructor(app, table, colIndex, tableId, plugin) {
+    super(app);
+    this.table = table;
+    this.colIndex = colIndex;
+    this.tableId = tableId;
+    this.plugin = plugin;
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.createEl("h3", { text: this.plugin.t("modal_title") });
+    contentEl.createEl("p", { text: this.plugin.t("modal_desc") });
+    const firstRow = this.table.querySelector("tr");
+    const cell =
+      firstRow && firstRow.querySelectorAll("th, td")[this.colIndex];
+    const input = contentEl.createEl("input", { type: "number" });
+    input.value = cell ? String(cell.offsetWidth || "") : "";
+    input.style.width = "100%";
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") this.submit(input.value);
+    });
+    new Setting(contentEl).addButton((b) =>
+      b
+        .setButtonText(this.plugin.t("modal_apply"))
+        .setCta()
+        .onClick(() => this.submit(input.value))
+    );
+    input.focus();
+    input.select();
+  }
+
+  submit(value) {
+    const px = parseInt(value, 10);
+    if (!Number.isNaN(px) && px > 0) {
+      const min = Number(this.plugin.settings.minColWidth) || 40;
+      this.plugin.setColWidth(this.table, this.colIndex, Math.max(min, px));
+      this.plugin.storeTableWidths(this.table, this.tableId);
+      this.close();
+    }
+  }
+
+  onClose() {
+    this.contentEl.empty();
   }
 }
 
@@ -484,39 +631,49 @@ class TableLayoutHelperSettingTab extends PluginSettingTab {
 
     containerEl.createEl("hr");
 
-    // ---------- Table layout ----------
-    containerEl.createEl("h3", { text: this.t("sec_table_layout") });
+    // ---------- Header style (common) ----------
+    containerEl.createEl("h3", { text: this.t("sec_header_style") });
 
     new Setting(containerEl)
-      .setName(this.t("setting_table_layout"))
-      .setDesc(this.t("setting_table_layout_desc"))
-      .addDropdown((dropdown) =>
-        dropdown
-          .addOption("fixed", "fixed")
-          .addOption("auto", "auto")
-          .setValue(this.plugin.settings.tableLayout)
+      .setName(this.t("setting_first_row_header"))
+      .setDesc(this.t("setting_first_row_header_desc"))
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.plugin.settings.firstRowHeader)
           .onChange(async (value) => {
-            this.plugin.settings.tableLayout = value;
+            this.plugin.settings.firstRowHeader = value;
             await this.plugin.saveSettings();
             this.plugin.injectStyle();
           })
       );
 
     new Setting(containerEl)
-      .setName(this.t("setting_table_width"))
-      .setDesc(this.t("setting_table_width_desc"))
-      .addText((text) =>
-        text
-          .setPlaceholder("100%")
-          .setValue(this.plugin.settings.tableWidth)
+      .setName(this.t("setting_first_col_header"))
+      .setDesc(this.t("setting_first_col_header_desc"))
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.plugin.settings.firstColumnHeader)
           .onChange(async (value) => {
-            this.plugin.settings.tableWidth = value || "100%";
+            this.plugin.settings.firstColumnHeader = value;
             await this.plugin.saveSettings();
             this.plugin.injectStyle();
           })
       );
 
-    // ---------- Column width ----------
+    new Setting(containerEl)
+      .setName(this.t("setting_header_color"))
+      .setDesc(this.t("setting_header_color_desc"))
+      .addColorPicker((color) =>
+        color
+          .setValue(this.plugin.settings.headerColor)
+          .onChange(async (value) => {
+            this.plugin.settings.headerColor = value;
+            await this.plugin.saveSettings();
+            this.plugin.injectStyle();
+          })
+      );
+
+    // ---------- Column width (common) ----------
     containerEl.createEl("h3", { text: this.t("sec_column_width") });
 
     new Setting(containerEl)
@@ -533,39 +690,52 @@ class TableLayoutHelperSettingTab extends PluginSettingTab {
           })
       );
 
-    new Setting(containerEl)
-      .setName(this.t("setting_first_col_nowrap"))
-      .setDesc(this.t("setting_first_col_nowrap_desc"))
-      .addToggle((toggle) =>
-        toggle
-          .setValue(!this.plugin.settings.firstColumnWrap)
-          .onChange(async (value) => {
-            this.plugin.settings.firstColumnWrap = !value;
-            await this.plugin.saveSettings();
-            this.plugin.injectStyle();
-          })
-      );
+    // ---------- Advanced (collapsed: uncommon options) ----------
+    const adv = containerEl.createEl("details");
+    const advSummary = adv.createEl("summary");
+    advSummary.setText(this.t("sec_advanced"));
+    advSummary.style.cursor = "pointer";
+    advSummary.style.fontWeight = "600";
+    advSummary.style.fontSize = "var(--h3-size)";
+    advSummary.style.color = "var(--text-normal)";
+    advSummary.style.userSelect = "none";
 
-    new Setting(containerEl)
-      .setName(this.t("setting_content_wrap"))
-      .setDesc(this.t("setting_content_wrap_desc"))
+    // ---------- Table layout (uncommon) ----------
+    adv.createEl("h3", { text: this.t("sec_table_layout") });
+
+    new Setting(adv)
+      .setName(this.t("setting_table_layout"))
+      .setDesc(this.t("setting_table_layout_desc"))
       .addDropdown((dropdown) =>
         dropdown
-          .addOption("break-word", "break-word")
-          .addOption("break-all", "break-all")
-          .addOption("normal", "normal")
-          .setValue(this.plugin.settings.contentColumnWrap)
+          .addOption("fixed", "fixed")
+          .addOption("auto", "auto")
+          .setValue(this.plugin.settings.tableLayout)
           .onChange(async (value) => {
-            this.plugin.settings.contentColumnWrap = value;
+            this.plugin.settings.tableLayout = value;
             await this.plugin.saveSettings();
             this.plugin.injectStyle();
           })
       );
 
-    // ---------- Alignment & line height ----------
-    containerEl.createEl("h3", { text: this.t("sec_alignment") });
+    new Setting(adv)
+      .setName(this.t("setting_table_width"))
+      .setDesc(this.t("setting_table_width_desc"))
+      .addText((text) =>
+        text
+          .setPlaceholder("100%")
+          .setValue(this.plugin.settings.tableWidth)
+          .onChange(async (value) => {
+            this.plugin.settings.tableWidth = value || "100%";
+            await this.plugin.saveSettings();
+            this.plugin.injectStyle();
+          })
+      );
 
-    new Setting(containerEl)
+    // ---------- Alignment & line height (uncommon) ----------
+    adv.createEl("h3", { text: this.t("sec_alignment") });
+
+    new Setting(adv)
       .setName(this.t("setting_vertical_align"))
       .setDesc(this.t("setting_vertical_align_desc"))
       .addDropdown((dropdown) =>
@@ -581,7 +751,7 @@ class TableLayoutHelperSettingTab extends PluginSettingTab {
           })
       );
 
-    new Setting(containerEl)
+    new Setting(adv)
       .setName(this.t("setting_line_height"))
       .setDesc(this.t("setting_line_height_desc"))
       .addText((text) =>
@@ -595,153 +765,20 @@ class TableLayoutHelperSettingTab extends PluginSettingTab {
           })
       );
 
-    // ---------- Overflow ----------
-    containerEl.createEl("h3", { text: this.t("sec_overflow") });
+    // ---------- Column resize (uncommon) ----------
+    adv.createEl("h3", { text: this.t("sec_col_resize") });
 
-    new Setting(containerEl)
-      .setName(this.t("setting_overflow_mode"))
-      .setDesc(this.t("setting_overflow_mode_desc"))
-      .addDropdown((dropdown) =>
-        dropdown
-          .addOption("visible", "visible")
-          .addOption("hidden", "hidden")
-          .addOption("scroll", "scroll")
-          .addOption("auto", "auto")
-          .setValue(this.plugin.settings.overflowMode)
-          .onChange(async (value) => {
-            this.plugin.settings.overflowMode = value;
-            await this.plugin.saveSettings();
-            this.plugin.injectStyle();
-          })
-      );
-
-    new Setting(containerEl)
-      .setName(this.t("setting_max_height"))
-      .setDesc(this.t("setting_max_height_desc"))
+    new Setting(adv)
+      .setName(this.t("setting_min_col_width"))
+      .setDesc(this.t("setting_min_col_width_desc"))
       .addText((text) =>
         text
-          .setPlaceholder("400px")
-          .setValue(this.plugin.settings.maxHeight)
+          .setPlaceholder("40")
+          .setValue(String(this.plugin.settings.minColWidth))
           .onChange(async (value) => {
-            this.plugin.settings.maxHeight = value;
+            this.plugin.settings.minColWidth =
+              value.replace(/[^\d]/g, "") || "40";
             await this.plugin.saveSettings();
-            this.plugin.injectStyle();
-          })
-      );
-
-    new Setting(containerEl)
-      .setName(this.t("setting_sticky_header"))
-      .setDesc(this.t("setting_sticky_header_desc"))
-      .addToggle((toggle) =>
-        toggle
-          .setValue(this.plugin.settings.stickyHeader)
-          .onChange(async (value) => {
-            this.plugin.settings.stickyHeader = value;
-            await this.plugin.saveSettings();
-            this.plugin.injectStyle();
-          })
-      );
-
-    // ---------- Styling ----------
-    containerEl.createEl("h3", { text: this.t("sec_styling") });
-
-    new Setting(containerEl)
-      .setName(this.t("setting_color_preset"))
-      .setDesc(this.t("setting_color_preset_desc"))
-      .addDropdown((dropdown) => {
-        for (const [key, val] of Object.entries(COLOR_PRESETS)) {
-          dropdown.addOption(key, this.plugin.settings.language === "en" ? val.en : val.zh);
-        }
-        dropdown
-          .setValue(this.plugin.settings.colorPreset)
-          .onChange(async (value) => {
-            this.plugin.settings.colorPreset = value;
-            await this.plugin.saveSettings();
-            this.plugin.injectStyle();
-          });
-      });
-
-    new Setting(containerEl)
-      .setName(this.t("setting_zebra"))
-      .setDesc(this.t("setting_zebra_desc"))
-      .addToggle((toggle) =>
-        toggle
-          .setValue(this.plugin.settings.zebraStripes)
-          .onChange(async (value) => {
-            this.plugin.settings.zebraStripes = value;
-            await this.plugin.saveSettings();
-            this.plugin.injectStyle();
-          })
-      );
-
-    new Setting(containerEl)
-      .setName(this.t("setting_zebra_color"))
-      .setDesc(this.t("setting_zebra_color_desc"))
-      .addColorPicker((color) =>
-        color
-          .setValue(this.plugin.settings.zebraColor)
-          .onChange(async (value) => {
-            this.plugin.settings.zebraColor = value;
-            await this.plugin.saveSettings();
-            this.plugin.injectStyle();
-          })
-      );
-
-    new Setting(containerEl)
-      .setName(this.t("setting_link_nowrap"))
-      .setDesc(this.t("setting_link_nowrap_desc"))
-      .addToggle((toggle) =>
-        toggle
-          .setValue(this.plugin.settings.linkNoWrap)
-          .onChange(async (value) => {
-            this.plugin.settings.linkNoWrap = value;
-            await this.plugin.saveSettings();
-            this.plugin.injectStyle();
-          })
-      );
-
-    // ---------- Border ----------
-    containerEl.createEl("h3", { text: this.t("sec_border") });
-
-    new Setting(containerEl)
-      .setName(this.t("setting_border_width"))
-      .setDesc(this.t("setting_border_width_desc"))
-      .addText((text) =>
-        text
-          .setPlaceholder("1")
-          .setValue(String(this.plugin.settings.borderWidth))
-          .onChange(async (value) => {
-            this.plugin.settings.borderWidth = value.replace(/[^\d]/g, "") || "0";
-            await this.plugin.saveSettings();
-            this.plugin.injectStyle();
-          })
-      );
-
-    new Setting(containerEl)
-      .setName(this.t("setting_border_color"))
-      .setDesc(this.t("setting_border_color_desc"))
-      .addColorPicker((color) =>
-        color
-          .setValue(this.plugin.settings.borderColor)
-          .onChange(async (value) => {
-            this.plugin.settings.borderColor = value;
-            await this.plugin.saveSettings();
-            this.plugin.injectStyle();
-          })
-      );
-
-    new Setting(containerEl)
-      .setName(this.t("setting_border_collapse"))
-      .setDesc(this.t("setting_border_collapse_desc"))
-      .addDropdown((dropdown) =>
-        dropdown
-          .addOption("collapse", "collapse")
-          .addOption("separate", "separate")
-          .setValue(this.plugin.settings.borderCollapse)
-          .onChange(async (value) => {
-            this.plugin.settings.borderCollapse = value;
-            await this.plugin.saveSettings();
-            this.plugin.injectStyle();
           })
       );
 

@@ -39,15 +39,11 @@ const I18N = {
     notice_enabled: "已开启",
     notice_disabled: "已关闭",
     notice_reloaded: "样式已重新加载",
-    notice_reset: "设置已恢复为默认值",
     // Settings - language
     setting_language: "界面语言",
     setting_language_desc: "选择设置面板的显示语言",
     lang_zh: "中文",
     lang_en: "English",
-    // Settings - basic
-    setting_enable: "启用插件",
-    setting_enable_desc: "关闭后将恢复 Obsidian 默认表格样式",
     // Settings - sections
     sec_table_layout: "表格布局",
     sec_column_width: "列宽",
@@ -95,18 +91,6 @@ const I18N = {
     setting_border_color_desc: "边框颜色",
     setting_border_collapse: "边框合并",
     setting_border_collapse_desc: "collapse / separate",
-    // Settings - reset
-    setting_reset: "恢复默认设置",
-    setting_reset_desc: "将所有设置恢复为默认值",
-    btn_reset: "重置",
-    // Tip
-    tip_title: "使用提示",
-    tip_1: "1. 本插件自动应用于所有 Markdown 表格",
-    tip_2: "2. 修改设置后立即生效，无需重启",
-    tip_3: "3. 使用 Ctrl+P → \"切换表格布局助手开关\" 快速开关",
-    tip_4: "4. 推荐配置：长表格使用 overflow=scroll + max-height=400px + sticky-header=on",
-    tip_css_title: "替换 CSS 代码片段",
-    tip_css_desc: "本插件替换 table-fixed.css 代码片段。启用本插件后请禁用原代码片段。",
   },
   en: {
     // Commands
@@ -116,15 +100,11 @@ const I18N = {
     notice_enabled: "Enabled",
     notice_disabled: "Disabled",
     notice_reloaded: "style reloaded",
-    notice_reset: "Settings reset to defaults",
     // Settings - language
     setting_language: "UI Language",
     setting_language_desc: "Select the display language for settings panel",
     lang_zh: "中文",
     lang_en: "English",
-    // Settings - basic
-    setting_enable: "Enable plugin",
-    setting_enable_desc: "Turn off to restore default Obsidian table styles",
     // Settings - sections
     sec_table_layout: "Table Layout",
     sec_column_width: "Column Width",
@@ -172,18 +152,6 @@ const I18N = {
     setting_border_color_desc: "Border color",
     setting_border_collapse: "Border collapse",
     setting_border_collapse_desc: "collapse / separate",
-    // Settings - reset
-    setting_reset: "Reset to defaults",
-    setting_reset_desc: "Restore all settings to default values",
-    btn_reset: "Reset",
-    // Tip
-    tip_title: "Usage Tips",
-    tip_1: "1. This plugin applies to all Markdown tables automatically",
-    tip_2: "2. Changes apply instantly — no restart needed",
-    tip_3: "3. Use Ctrl+P → \"Toggle table layout control\" for quick on/off",
-    tip_4: "4. Recommended: overflow=scroll + max-height=400px + sticky-header=on for long tables",
-    tip_css_title: "Replaces CSS snippet",
-    tip_css_desc: "This plugin replaces the table-fixed.css snippet. Disable the original snippet after enabling this plugin.",
   },
 };
 
@@ -508,22 +476,6 @@ class TableLayoutHelperSettingTab extends PluginSettingTab {
 
     containerEl.createEl("hr");
 
-    // ---------- Basic ----------
-    new Setting(containerEl)
-      .setName(this.t("setting_enable"))
-      .setDesc(this.t("setting_enable_desc"))
-      .addToggle((toggle) =>
-        toggle
-          .setValue(this.plugin.settings.enabled)
-          .onChange(async (value) => {
-            this.plugin.settings.enabled = value;
-            await this.plugin.saveSettings();
-            this.plugin.injectStyle();
-          })
-      );
-
-    containerEl.createEl("hr");
-
     // ---------- Table layout ----------
     containerEl.createEl("h3", { text: this.t("sec_table_layout") });
 
@@ -782,41 +734,6 @@ class TableLayoutHelperSettingTab extends PluginSettingTab {
             this.plugin.settings.borderCollapse = value;
             await this.plugin.saveSettings();
             this.plugin.injectStyle();
-          })
-      );
-
-    containerEl.createEl("hr");
-
-    // ---------- Usage tips ----------
-    const tip = containerEl.createEl("div", { cls: "tlh-tip" });
-    tip.innerHTML = `
-      <b>${this.t("tip_title")}</b><br>
-      ${this.t("tip_1")}<br>
-      ${this.t("tip_2")}<br>
-      ${this.t("tip_3")}<br>
-      ${this.t("tip_4")}<br>
-      <br>
-      <b>${this.t("tip_css_title")}</b><br>
-      ${this.t("tip_css_desc")}
-    `;
-
-    // ---------- Reset ----------
-    new Setting(containerEl)
-      .setName(this.t("setting_reset"))
-      .setDesc(this.t("setting_reset_desc"))
-      .addButton((button) =>
-        button
-          .setButtonText(this.t("btn_reset"))
-          .setWarning()
-          .onClick(async () => {
-            const savedLang = this.plugin.settings.language;
-            this.plugin.settings = Object.assign({}, DEFAULT_SETTINGS);
-            this.plugin.settings.language = savedLang;
-            await this.plugin.saveSettings();
-            this.plugin.injectStyle();
-            this.plugin.registerCommands();
-            this.display();
-            new Notice(this.t("notice_reset"), 2000);
           })
       );
   }

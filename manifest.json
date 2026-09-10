@@ -1,9 +1,9 @@
 {
   "id": "table-layout-helper",
   "name": "XU Table Layout Helper",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "minAppVersion": "1.4.0",
-  "description": "Style table headers (first row and/or first column) and adjust column widths by dragging directly in the table. Layout, width, and alignment options included.",
+  "description": "表格布局助手：Markdown 表格表头样式（首行/首列/颜色）与列宽拖拽自动记忆，布局对齐设置，双视图实时生效.",
   "author": "旭说",
   "authorUrl": "https://github.com/xcloud-ai",
   "isDesktopOnly": false

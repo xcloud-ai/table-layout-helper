@@ -94,4 +94,4 @@ Commands: toggle plugin, reload styles, clear column widths in current file.
 
 ## License
 
-MIT License - Copyright (c) 2026 旭说云原生
+MIT License - Copyright (c) 2026 旭说

@@ -18,6 +18,13 @@ const STYLE_ID = "table-layout-helper-style";
 
 const I18N = {
   zh: {
+    // Settings page standard header
+    setting_title: "XU Table Layout Helper（表格布局助手）",
+    setting_header_desc:
+      "Markdown 表格美化与列宽拖拽：表头样式、布局对齐可视化配置，列宽拖拽自动记忆。",
+    Documentation: "使用文档",
+    doc_desc: "在 GitHub 查看完整使用说明",
+    GitHub: "GitHub",
     // Commands
     cmd_toggle: "切换表格布局助手开关",
     cmd_reload: "重新加载表格样式",
@@ -41,9 +48,15 @@ const I18N = {
     sec_overflow: "溢出控制",
     sec_styling: "样式",
     sec_border: "边框",
+    // Dropdown option labels (stored values stay fixed/auto/top/middle/bottom)
+    opt_fixed: "固定列宽（推荐）",
+    opt_auto: "自动列宽",
+    opt_top: "顶部",
+    opt_middle: "居中",
+    opt_bottom: "底部",
     // Settings - table layout
     setting_table_layout: "表格布局模式",
-    setting_table_layout_desc: "fixed = 固定列宽（推荐），auto = 自动列宽",
+    setting_table_layout_desc: "选择表格的列宽分配方式",
     setting_table_width: "表格宽度",
     setting_table_width_desc: "支持 100% / auto / 像素值（如 800px）",
     // Settings - column width
@@ -93,6 +106,13 @@ const I18N = {
     tip_css_desc: "本插件替换 table-fixed.css 代码片段。启用本插件后请禁用原代码片段。",
   },
   en: {
+    // Settings page standard header
+    setting_title: "XU Table Layout Helper",
+    setting_header_desc:
+      "Markdown table beautifier: header styles, layout and alignment with visual settings, plus drag-to-resize column widths with auto memory.",
+    Documentation: "Documentation",
+    doc_desc: "View the full manual on GitHub",
+    GitHub: "GitHub",
     // Commands
     cmd_toggle: "Toggle table layout control",
     cmd_reload: "Reload table style",
@@ -116,9 +136,15 @@ const I18N = {
     sec_overflow: "Overflow Control",
     sec_styling: "Styling",
     sec_border: "Border",
+    // Dropdown option labels (stored values stay fixed/auto/top/middle/bottom)
+    opt_fixed: "Fixed (recommended)",
+    opt_auto: "Auto",
+    opt_top: "Top",
+    opt_middle: "Middle",
+    opt_bottom: "Bottom",
     // Settings - table layout
     setting_table_layout: "Table layout mode",
-    setting_table_layout_desc: "fixed = fixed column width (recommended), auto = auto column width",
+    setting_table_layout_desc: "Choose how column widths are allocated",
     setting_table_width: "Table width",
     setting_table_width_desc: "Supports 100% / auto / pixel value (e.g. 800px)",
     // Settings - column width
@@ -315,7 +341,12 @@ class TableLayoutHelperSettingTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
 
-    containerEl.createEl("h2", { text: "XU Table Layout Helper" });
+    // 标准头：英文名（中文名）标题 + 1 行功能描述
+    containerEl.createEl("h2", { text: this.t("setting_title") });
+    containerEl.createDiv({
+      cls: "tlh-hint",
+      text: this.t("setting_header_desc"),
+    });
 
     // ---------- 语言切换器（顶部）----------
     new Setting(containerEl)
@@ -352,6 +383,22 @@ class TableLayoutHelperSettingTab extends PluginSettingTab {
       );
 
     // ... 其余设置项见 main.js（均通过 t() 获取文本）
+
+    // ---------- GitHub 使用文档（统一入口）----------
+    containerEl.createEl("hr", { cls: "tlh-divider" });
+    new Setting(containerEl)
+      .setName(this.t("Documentation"))
+      .setDesc(this.t("doc_desc"))
+      .addButton((button) =>
+        button
+          .setButtonText(this.t("GitHub"))
+          .onClick(() => {
+            window.open(
+              "https://github.com/xcloud-ai/table-layout-helper",
+              "_blank"
+            );
+          })
+      );
   }
 }
 

@@ -32,6 +32,13 @@ const STYLE_ID = "table-layout-helper-style";
 
 const I18N = {
   zh: {
+    // Settings page standard header
+    setting_title: "XU Table Layout Helper（表格布局助手）",
+    setting_header_desc:
+      "Markdown 表格美化与列宽拖拽：表头样式、布局对齐可视化配置，列宽拖拽自动记忆。",
+    Documentation: "使用文档",
+    doc_desc: "在 GitHub 查看完整使用说明",
+    GitHub: "GitHub",
     // Commands
     cmd_toggle: "切换表格布局助手开关",
     cmd_reload: "重新加载表格样式",
@@ -54,6 +61,12 @@ const I18N = {
     sec_alignment: "对齐与行高",
     sec_header_style: "表头样式",
     sec_advanced: "高级",
+    // Dropdown option labels (stored values stay fixed/auto/top/middle/bottom)
+    opt_fixed: "固定列宽（推荐）",
+    opt_auto: "自动列宽",
+    opt_top: "顶部",
+    opt_middle: "居中",
+    opt_bottom: "底部",
     setting_first_row_header: "首行作为表头",
     setting_first_row_header_desc: "横向表头：样式应用于首行",
     setting_first_col_header: "首列作为表头",
@@ -62,7 +75,7 @@ const I18N = {
     setting_header_color_desc: "表头文字颜色，留空跟随主题；表头默认加粗",
     // Settings - table layout
     setting_table_layout: "表格布局模式",
-    setting_table_layout_desc: "fixed = 固定列宽（推荐），auto = 自动列宽",
+    setting_table_layout_desc: "选择表格的列宽分配方式",
     setting_table_width: "表格宽度",
     setting_table_width_desc: "支持 100% / auto / 像素值（如 800px）",
     // Settings - column width
@@ -85,6 +98,13 @@ const I18N = {
     modal_apply: "应用",
   },
   en: {
+    // Settings page standard header
+    setting_title: "XU Table Layout Helper",
+    setting_header_desc:
+      "Markdown table beautifier: header styles, layout and alignment with visual settings, plus drag-to-resize column widths with auto memory.",
+    Documentation: "Documentation",
+    doc_desc: "View the full manual on GitHub",
+    GitHub: "GitHub",
     // Commands
     cmd_toggle: "Toggle table layout control",
     cmd_reload: "Reload table style",
@@ -107,6 +127,12 @@ const I18N = {
     sec_alignment: "Alignment & Line Height",
     sec_header_style: "Header Style",
     sec_advanced: "Advanced",
+    // Dropdown option labels (stored values stay fixed/auto/top/middle/bottom)
+    opt_fixed: "Fixed (recommended)",
+    opt_auto: "Auto",
+    opt_top: "Top",
+    opt_middle: "Middle",
+    opt_bottom: "Bottom",
     setting_first_row_header: "First row as header",
     setting_first_row_header_desc: "Horizontal header: style applies to the first row",
     setting_first_col_header: "First column as header",
@@ -115,7 +141,7 @@ const I18N = {
     setting_header_color_desc: "Header text color, leave empty to follow theme; header is bold by default",
     // Settings - table layout
     setting_table_layout: "Table layout mode",
-    setting_table_layout_desc: "fixed = fixed column width (recommended), auto = auto column width",
+    setting_table_layout_desc: "Choose how column widths are allocated",
     setting_table_width: "Table width",
     setting_table_width_desc: "Supports 100% / auto / pixel value (e.g. 800px)",
     // Settings - column width
@@ -608,7 +634,12 @@ class TableLayoutHelperSettingTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
 
-    containerEl.createEl("h2", { text: "XU Table Layout Helper" });
+    // 标准头：英文名（中文名）标题 + 1 行功能描述
+    containerEl.createEl("h2", { text: this.t("setting_title") });
+    containerEl.createDiv({
+      cls: "tlh-hint",
+      text: this.t("setting_header_desc"),
+    });
 
     // ---------- Language switcher (top) ----------
     new Setting(containerEl)
@@ -708,8 +739,8 @@ class TableLayoutHelperSettingTab extends PluginSettingTab {
       .setDesc(this.t("setting_table_layout_desc"))
       .addDropdown((dropdown) =>
         dropdown
-          .addOption("fixed", "fixed")
-          .addOption("auto", "auto")
+          .addOption("fixed", this.t("opt_fixed"))
+          .addOption("auto", this.t("opt_auto"))
           .setValue(this.plugin.settings.tableLayout)
           .onChange(async (value) => {
             this.plugin.settings.tableLayout = value;
@@ -740,9 +771,9 @@ class TableLayoutHelperSettingTab extends PluginSettingTab {
       .setDesc(this.t("setting_vertical_align_desc"))
       .addDropdown((dropdown) =>
         dropdown
-          .addOption("top", "top")
-          .addOption("middle", "middle")
-          .addOption("bottom", "bottom")
+          .addOption("top", this.t("opt_top"))
+          .addOption("middle", this.t("opt_middle"))
+          .addOption("bottom", this.t("opt_bottom"))
           .setValue(this.plugin.settings.verticalAlign)
           .onChange(async (value) => {
             this.plugin.settings.verticalAlign = value;
@@ -799,6 +830,22 @@ class TableLayoutHelperSettingTab extends PluginSettingTab {
             this.plugin.registerCommands();
             this.display();
             new Notice(this.t("notice_reset"), 2000);
+          })
+      );
+
+    // ---------- GitHub 使用文档（统一入口）----------
+    containerEl.createEl("hr", { cls: "tlh-divider" });
+    new Setting(containerEl)
+      .setName(this.t("Documentation"))
+      .setDesc(this.t("doc_desc"))
+      .addButton((button) =>
+        button
+          .setButtonText(this.t("GitHub"))
+          .onClick(() => {
+            window.open(
+              "https://github.com/xcloud-ai/table-layout-helper",
+              "_blank"
+            );
           })
       );
   }

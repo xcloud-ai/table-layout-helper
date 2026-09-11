@@ -2,6 +2,20 @@
    XU Table Layout Helper - column resize handles
    ================================================================ */
 
+/* 设置面板标准头描述文字 */
+.tlh-hint {
+	margin: 0 0 8px 0;
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
+/* 设置面板分区分隔线 */
+.tlh-divider {
+	border: none;
+	border-top: 1px solid var(--background-modifier-border);
+	margin: 16px 0;
+}
+
 /* Drag handle: invisible strip on the right edge of first-row cells;
    highlighted with the theme accent color on hover / while dragging */
 .tlh-col-resizer {

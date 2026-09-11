@@ -635,7 +635,8 @@ class TableLayoutHelperSettingTab extends PluginSettingTab {
     containerEl.empty();
 
     // 标准头：英文名（中文名）标题 + 1 行功能描述
-    containerEl.createEl("h2", { text: this.t("setting_title") });
+    // （官方要求 setHeading，禁止直接创建 h2/h3）
+    new Setting(containerEl).setName(this.t("setting_title")).setHeading();
     containerEl.createDiv({
       cls: "tlh-hint",
       text: this.t("setting_header_desc"),
@@ -663,7 +664,7 @@ class TableLayoutHelperSettingTab extends PluginSettingTab {
     containerEl.createEl("hr");
 
     // ---------- Header style (common) ----------
-    containerEl.createEl("h3", { text: this.t("sec_header_style") });
+    new Setting(containerEl).setName(this.t("sec_header_style")).setHeading();
 
     new Setting(containerEl)
       .setName(this.t("setting_first_row_header"))
@@ -705,7 +706,7 @@ class TableLayoutHelperSettingTab extends PluginSettingTab {
       );
 
     // ---------- Column width (common) ----------
-    containerEl.createEl("h3", { text: this.t("sec_column_width") });
+    new Setting(containerEl).setName(this.t("sec_column_width")).setHeading();
 
     new Setting(containerEl)
       .setName(this.t("setting_first_col_width"))
@@ -732,7 +733,7 @@ class TableLayoutHelperSettingTab extends PluginSettingTab {
     advSummary.style.userSelect = "none";
 
     // ---------- Table layout (uncommon) ----------
-    adv.createEl("h3", { text: this.t("sec_table_layout") });
+    new Setting(adv).setName(this.t("sec_table_layout")).setHeading();
 
     new Setting(adv)
       .setName(this.t("setting_table_layout"))
@@ -764,7 +765,7 @@ class TableLayoutHelperSettingTab extends PluginSettingTab {
       );
 
     // ---------- Alignment & line height (uncommon) ----------
-    adv.createEl("h3", { text: this.t("sec_alignment") });
+    new Setting(adv).setName(this.t("sec_alignment")).setHeading();
 
     new Setting(adv)
       .setName(this.t("setting_vertical_align"))
@@ -797,7 +798,7 @@ class TableLayoutHelperSettingTab extends PluginSettingTab {
       );
 
     // ---------- Column resize (uncommon) ----------
-    adv.createEl("h3", { text: this.t("sec_col_resize") });
+    new Setting(adv).setName(this.t("sec_col_resize")).setHeading();
 
     new Setting(adv)
       .setName(this.t("setting_min_col_width"))

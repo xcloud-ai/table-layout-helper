@@ -342,7 +342,8 @@ class TableLayoutHelperSettingTab extends PluginSettingTab {
     containerEl.empty();
 
     // 标准头：英文名（中文名）标题 + 1 行功能描述
-    containerEl.createEl("h2", { text: this.t("setting_title") });
+    // （官方要求 setHeading，禁止直接创建 h2/h3）
+    new Setting(containerEl).setName(this.t("setting_title")).setHeading();
     containerEl.createDiv({
       cls: "tlh-hint",
       text: this.t("setting_header_desc"),

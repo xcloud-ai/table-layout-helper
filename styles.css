@@ -60,7 +60,7 @@ body.tlh-resizing {
    Obsidian's own .internal-link word-break setting. */
 .tlh-measuring,
 .tlh-measuring * {
-	white-space: nowrap !important;
-	word-break: keep-all !important;
-	overflow-wrap: normal !important;
+	white-space: nowrap;
+	word-break: keep-all;
+	overflow-wrap: normal;
 }

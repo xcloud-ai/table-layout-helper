@@ -692,16 +692,17 @@ class TableLayoutHelperPlugin extends Plugin {
     table.classList.remove("tlh-measuring");
 
     // 5. Width distribution strategy:
-    //    - Roomy  (totalNatural <= containerWidth):
-    //        distribute the extra space proportionally so the table
-    //        fills 100% width with comfortable padding.
-    //    - Tight  (containerWidth < totalNatural <= containerWidth*1.5):
-    //        scale columns down proportionally to fit 100%, but never
-    //        below minColWidth. (Content that would wrap more than ~3
-    //        lines is allowed to overflow instead.)
-    //    - Overflow (totalNatural > containerWidth*1.5):
-    //        use natural widths — a horizontal scrollbar appears.
+    //    - If all columns fit within the container (totalNatural <= W):
+    //        distribute extra space proportionally, table fills 100%.
+    //    - If not (content overflows):
+    //        * Column 0 (usually the file-link column) gets priority:
+    //          keep its natural width so wiki links stay on one line,
+    //          capped at FIRST_COL_MAX_RATIO of W (beyond that it wraps).
+    //        * Remaining columns share the leftover space proportionally
+    //          to their natural widths; they are allowed to wrap.
+    //        Total table width is always 100% (no horizontal scrollbar).
     const minW = Number(this.settings.minColWidth) || 40;
+    const FIRST_COL_MAX_RATIO = 0.6; // first column can take up to 60%
     const totalNatural = maxWidths.reduce((a, b) => a + b, 0);
     const containerWidth =
       table.parentElement && table.parentElement.clientWidth
@@ -710,16 +711,35 @@ class TableLayoutHelperPlugin extends Plugin {
 
     let finalWidths;
     if (containerWidth > 0 && totalNatural <= containerWidth) {
+      // Roomy: every column fits on one line; distribute extra space.
       const extra = containerWidth - totalNatural;
       finalWidths = maxWidths.map(
         (w) => w + (w / totalNatural) * extra
       );
-    } else if (
-      containerWidth > 0 &&
-      totalNatural <= containerWidth * 1.5
-    ) {
-      const ratio = containerWidth / totalNatural;
-      finalWidths = maxWidths.map((w) => Math.max(w * ratio, minW));
+    } else if (containerWidth > 0) {
+      // Overflow: prioritise column 0, let the rest wrap.
+      const firstNatural = maxWidths[0] || minW;
+      const firstCap = containerWidth * FIRST_COL_MAX_RATIO;
+      const firstWidth = Math.min(firstNatural, firstCap);
+      const remaining = containerWidth - firstWidth;
+
+      const otherNatural = maxWidths.slice(1);
+      const otherSum = otherNatural.reduce((a, b) => a + b, 0) || 1;
+
+      let otherWidths;
+      if (otherSum <= remaining) {
+        // Other columns also fit; give them their natural width plus a
+        // proportional share of whatever is left.
+        const extra = remaining - otherSum;
+        otherWidths = otherNatural.map(
+          (w) => w + (w / otherSum) * extra
+        );
+      } else {
+        // Not enough room: shrink proportionally, allow wrapping.
+        const ratio = remaining / otherSum;
+        otherWidths = otherNatural.map((w) => Math.max(w * ratio, minW));
+      }
+      finalWidths = [firstWidth, ...otherWidths];
     } else {
       finalWidths = maxWidths.map((w) => Math.max(w, minW));
     }
@@ -1132,4 +1152,5 @@ class TableLayoutHelperSettingTab extends PluginSettingTab {
 module.exports = TableLayoutHelperPlugin;
 module.exports.default = TableLayoutHelperPlugin;
 
+/* nosourcemap */
 /* nosourcemap */

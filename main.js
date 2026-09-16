@@ -90,6 +90,11 @@ const I18N = {
     cmd_clear_widths: "清除本文件的表格列宽",
     notice_no_widths: "本文件没有已保存的列宽",
     notice_widths_cleared: "已清除本文件的表格列宽",
+    cmd_autofit: "自动适配当前文件表格列宽",
+    notice_autofit: "已适配 {n} 个表格的列宽",
+    setting_autofit: "自动适配列宽",
+    setting_autofit_desc: "点击后将当前文件所有表格列宽调整为内容单行显示",
+    btn_autofit: "适配当前文件",
     sec_col_resize: "列宽拖拽",
     setting_min_col_width: "拖拽最小列宽",
     setting_min_col_width_desc: "拖拽/输入列宽的下限（像素）",
@@ -156,6 +161,11 @@ const I18N = {
     cmd_clear_widths: "Clear table column widths for this file",
     notice_no_widths: "No saved column widths for this file",
     notice_widths_cleared: "Column widths cleared for this file",
+    cmd_autofit: "Auto-fit column widths for current file",
+    notice_autofit: "Fitted {n} table(s)",
+    setting_autofit: "Auto-fit column widths",
+    setting_autofit_desc: "Click to resize all tables in the current file so each column fits its content in one line",
+    btn_autofit: "Fit current file",
     sec_col_resize: "Column Resize",
     setting_min_col_width: "Minimum column width",
     setting_min_col_width_desc: "Lower limit (px) for drag/input resizing",
@@ -284,27 +294,73 @@ class TableLayoutHelperPlugin extends Plugin {
 
     // Column resize: attach drag handles to every rendered table
     // (reading view + live preview widgets) and restore saved widths.
-    // The table's source line anchor is captured synchronously from the
-    // section info — DOM position cannot be used because live preview
-    // only renders tables inside the viewport (virtualized editor).
+    // Fingerprint is content-based (header + first data row), NOT line
+    // number, so editing above the table no longer invalidates memory.
     this.registerMarkdownPostProcessor((el, ctx) => {
       if (!this.settings.enabled) return;
-      const info =
-        typeof ctx.getSectionInfo === "function"
-          ? ctx.getSectionInfo(el)
-          : null;
-      const lineStart = info ? info.lineStart : null;
       const tables = el.querySelectorAll("table");
       for (const table of Array.from(tables)) {
-        this.attachResizeHandles(table, ctx.sourcePath || "", lineStart);
+        this.attachResizeHandles(table, ctx.sourcePath || "");
       }
     });
+
+    // Watch data.json for external modifications (e.g. cloud sync from
+    // another device). When the file changes on disk but NOT from our
+    // own save, merge any new tableWidth keys into memory so widths
+    // adjusted on the other machine become available here too.
+    this.registerEvent(
+      this.app.vault.on("modify", async (file) => {
+        const dataPath = `${this.app.vault.configDir}/plugins/${PLUGIN_ID}/data.json`;
+        if (file.path !== dataPath) return;
+        if (this._saving) return; // skip our own writes
+        if (this._reloadTimer) clearTimeout(this._reloadTimer);
+        this._reloadTimer = setTimeout(() => this.mergeFromDisk(), 300);
+      })
+    );
 
     // Commands (names use i18n, re-registered on language change)
     this.registerCommands();
 
+    // Ribbon icon: one-click auto-fit all tables in the current file
+    this.addRibbonIcon("columns-3", this.t("cmd_autofit"), () => {
+      this.autoFitActiveFile();
+    });
+
     // Settings tab
     this.addSettingTab(new TableLayoutHelperSettingTab(this.app, this));
+  }
+
+  // Called when data.json changes on disk from an external source
+  // (cloud sync). Pulls any tableWidth keys present on disk but missing
+  // from memory into memory, without overwriting memory's own values.
+  async mergeFromDisk() {
+    const diskData = (await this.loadData()) || {};
+    const diskWidths = diskData.tableWidths || {};
+    let changed = false;
+    for (const key of Object.keys(diskWidths)) {
+      if (!(key in this.tableWidths)) {
+        this.tableWidths[key] = diskWidths[key];
+        changed = true;
+      }
+    }
+    if (changed) {
+      this.refreshOpenTables();
+    }
+  }
+
+  // Re-apply stored widths to tables currently open in the workspace.
+  refreshOpenTables() {
+    for (const leaf of this.app.workspace.getLeavesOfType("markdown")) {
+      const view = leaf.view;
+      if (!view || !view.contentEl) continue;
+      const tables = view.contentEl.querySelectorAll("table[data-tlh-table-id]");
+      for (const table of tables) {
+        const id = table.dataset.tlhTableId;
+        if (id && this.tableWidths[id]) {
+          this.applyStoredWidths(table, id);
+        }
+      }
+    }
   }
 
   registerCommands() {
@@ -341,6 +397,16 @@ class TableLayoutHelperPlugin extends Plugin {
         this.clearFileWidths(file);
       },
     });
+
+    this.addCommand({
+      id: "auto-fit-column-widths",
+      name: this.t("cmd_autofit"),
+      checkCallback: (checking) => {
+        const file = this.app.workspace.getActiveFile();
+        if (checking) return !!file;
+        this.autoFitActiveFile();
+      },
+    });
   }
 
   onunload() {
@@ -365,42 +431,103 @@ class TableLayoutHelperPlugin extends Plugin {
     this.tableWidths = data.tableWidths || {};
     delete data.tableWidths;
     this.settings = data;
+    // Migrate legacy keys that embedded the source line number (e.g.
+    // "w:path:L14:2:hash") to the new line-number-free format, and delete
+    // the orphaned old keys so they no longer accumulate.
+    this.migrateLegacyWidthKeys();
+  }
+
+  // Legacy format:  w:${path}:L${line}:${cols}:${headerHash}
+  // New format:     w:${path}:${cols}:${headerHash}:${dataHash}
+  // Migration strips the ":Lnn:" segment. Legacy keys carry no data-row
+  // hash, so they land as "w:path:cols:headerHash:" (empty dataHash) and
+  // are matched by the fallback in applyStoredWidths.
+  migrateLegacyWidthKeys() {
+    const oldKeys = Object.keys(this.tableWidths).filter((k) =>
+      /:L\d+:/.test(k)
+    );
+    if (oldKeys.length === 0) return;
+    for (const oldKey of oldKeys) {
+      const newKey = oldKey.replace(/:L\d+:/, ":");
+      // Keep the first migrated value; later duplicates are dropped.
+      if (!(newKey in this.tableWidths)) {
+        this.tableWidths[newKey] = this.tableWidths[oldKey];
+      }
+      delete this.tableWidths[oldKey];
+    }
+    this.saveWidthsDebounced();
   }
 
   async saveSettings() {
-    await this.saveData(
-      Object.assign({}, this.settings, { tableWidths: this.tableWidths })
-    );
+    await this.saveMerged();
+  }
+
+  // Save settings + tableWidths, but first re-read the latest data from
+  // disk and merge tableWidths: disk keys that memory lacks are kept
+  // (synced from another machine via cloud sync), while memory's own
+  // keys always win (this machine's latest action). This prevents a
+  // stale in-memory copy from clobbering widths written by another
+  // Obsidian instance running on a different device.
+  async saveMerged(force = false) {
+    let mergedWidths = this.tableWidths;
+    if (!force) {
+      const diskData = (await this.loadData()) || {};
+      const diskWidths = diskData.tableWidths || {};
+      mergedWidths = Object.assign({}, diskWidths, this.tableWidths);
+      this.tableWidths = mergedWidths;
+    }
+    this._saving = true;
+    try {
+      await this.saveData(
+        Object.assign({}, this.settings, { tableWidths: mergedWidths })
+      );
+    } finally {
+      this._saving = false;
+    }
   }
 
   // ================================================================
   //  Column resize (drag header edges / double-click to type width)
   // ================================================================
 
-  // Stable table fingerprint: file path + source line anchor + column count
-  // + header text hash. Row count is intentionally excluded so adding/
-  // removing rows keeps the same ID (same approach as obsidian-table-resizer).
-  // The line anchor disambiguates tables with identical/empty headers and is
-  // independent of what is currently rendered (live preview virtualizes the
-  // editor, so DOM-based ordinals are unreliable).
-  getTableId(table, sourcePath, lineStart) {
-    const firstRow = table.querySelector("tr");
-    const cells = firstRow ? firstRow.querySelectorAll("th, td") : [];
-    const parts = [];
-    for (const cell of cells) {
-      parts.push((cell.textContent || "").trim().substring(0, 30));
+  // Stable table fingerprint: file path + column count + header text hash
+  // + first data row hash. Row count and source line number are
+  // intentionally EXCLUDED so adding/removing content above the table
+  // does NOT change the ID. (The old Lnn anchor caused width memory to
+  // "disappear" after any edit above the table, producing orphan keys.)
+  // Tables with identical header AND identical first data row share one
+  // width record — acceptable in practice.
+  getTableId(table, sourcePath) {
+    const rows = table.querySelectorAll("tr");
+    const headerRow = rows[0];
+    const dataRow = rows[1];
+    const headerCells = headerRow
+      ? headerRow.querySelectorAll("th, td")
+      : [];
+    const headerParts = [];
+    for (const cell of headerCells) {
+      headerParts.push((cell.textContent || "").trim().substring(0, 30));
     }
-    const hash = parts.join("|").replace(/[^a-zA-Z0-9一-龥|]/g, "_");
-    const anchor =
-      lineStart === null || lineStart === undefined ? "x" : `L${lineStart}`;
-    return `w:${sourcePath}:${anchor}:${cells.length}:${hash}`;
+    const headerHash = headerParts
+      .join("|")
+      .replace(/[^a-zA-Z0-9一-龥|]/g, "_");
+    let dataHash = "";
+    if (dataRow) {
+      const dataCells = dataRow.querySelectorAll("th, td");
+      const dataParts = [];
+      for (const cell of dataCells) {
+        dataParts.push((cell.textContent || "").trim().substring(0, 30));
+      }
+      dataHash = dataParts.join("|").replace(/[^a-zA-Z0-9一-龥|]/g, "_");
+    }
+    return `w:${sourcePath}:${headerCells.length}:${headerHash}:${dataHash}`;
   }
 
-  attachResizeHandles(table, sourcePath, lineStart) {
+  attachResizeHandles(table, sourcePath) {
     if (table.dataset.tlhResized === "1") return;
     table.dataset.tlhResized = "1";
 
-    const id = this.getTableId(table, sourcePath, lineStart);
+    const id = this.getTableId(table, sourcePath);
     table.dataset.tlhTableId = id;
     this.applyStoredWidths(table, id);
     this.addResizeHandles(table, id);
@@ -502,8 +629,150 @@ class TableLayoutHelperPlugin extends Plugin {
     this.saveWidthsDebounced();
   }
 
+  // Auto-fit column widths so every column shows its content in a
+  // single line (no wrapping). Strategy: temporarily switch the table
+  // to table-layout:auto + white-space:nowrap so the browser computes
+  // each column's natural "single line" width, read those widths, then
+  // switch back to fixed and apply them. This is a manual action
+  // (command / settings button), never automatic.
+  autoFitTable(table) {
+    // 1. Remove any previously applied colgroup widths so auto layout
+    //    can compute from content alone.
+    const cols = table.querySelectorAll("colgroup col");
+    const oldColStyles = [];
+    cols.forEach((col, i) => {
+      oldColStyles[i] = {
+        width: col.style.width,
+        minWidth: col.style.minWidth,
+        maxWidth: col.style.maxWidth,
+      };
+      col.style.width = "";
+      col.style.minWidth = "";
+      col.style.maxWidth = "";
+    });
+
+    // 2. Switch to auto layout + force single-line rendering via a
+    //    temporary CSS class (.tlh-measuring * with !important) so even
+    //    Obsidian's .internal-link { word-break:break-word !important }
+    //    is overridden. Using a class is more reliable than setting
+    //    inline styles on every nested element.
+    const oldLayout = table.style.tableLayout;
+    table.style.tableLayout = "auto";
+    table.classList.add("tlh-measuring");
+
+    // 3. Read the natural widths from ALL rows, taking the max width
+    //    per column. (Using only the header row was wrong: headers are
+    //    usually short, so data rows would still wrap.)
+    const rows = table.querySelectorAll("tr");
+    if (rows.length === 0) {
+      table.classList.remove("tlh-measuring");
+      table.style.tableLayout = oldLayout;
+      return;
+    }
+    const maxWidths = [];
+    for (const row of rows) {
+      const rowCells = row.querySelectorAll("th, td");
+      for (let i = 0; i < rowCells.length; i++) {
+        const w = rowCells[i].offsetWidth;
+        if (maxWidths[i] === undefined || w > maxWidths[i]) {
+          maxWidths[i] = w;
+        }
+      }
+    }
+    // Add a small buffer to compensate for pixel rounding and border
+    // differences between auto-layout measurement and fixed-layout
+    // application. Without this, content can overflow by 1-2px and
+    // word-break:break-word kicks in, wrapping a single character.
+    const BUFFER = 4;
+    for (let i = 0; i < maxWidths.length; i++) {
+      maxWidths[i] += BUFFER;
+    }
+
+    // 4. Remove the measuring class so normal wrapping behaviour returns.
+    table.classList.remove("tlh-measuring");
+
+    // 5. Width distribution strategy:
+    //    - Roomy  (totalNatural <= containerWidth):
+    //        distribute the extra space proportionally so the table
+    //        fills 100% width with comfortable padding.
+    //    - Tight  (containerWidth < totalNatural <= containerWidth*1.5):
+    //        scale columns down proportionally to fit 100%, but never
+    //        below minColWidth. (Content that would wrap more than ~3
+    //        lines is allowed to overflow instead.)
+    //    - Overflow (totalNatural > containerWidth*1.5):
+    //        use natural widths — a horizontal scrollbar appears.
+    const minW = Number(this.settings.minColWidth) || 40;
+    const totalNatural = maxWidths.reduce((a, b) => a + b, 0);
+    const containerWidth =
+      table.parentElement && table.parentElement.clientWidth
+        ? table.parentElement.clientWidth
+        : 0;
+
+    let finalWidths;
+    if (containerWidth > 0 && totalNatural <= containerWidth) {
+      const extra = containerWidth - totalNatural;
+      finalWidths = maxWidths.map(
+        (w) => w + (w / totalNatural) * extra
+      );
+    } else if (
+      containerWidth > 0 &&
+      totalNatural <= containerWidth * 1.5
+    ) {
+      const ratio = containerWidth / totalNatural;
+      finalWidths = maxWidths.map((w) => Math.max(w * ratio, minW));
+    } else {
+      finalWidths = maxWidths.map((w) => Math.max(w, minW));
+    }
+
+    table.style.tableLayout = oldLayout || "fixed";
+    const id = table.dataset.tlhTableId || this.getTableId(table, "");
+    for (let i = 0; i < finalWidths.length; i++) {
+      this.setColWidth(table, i, finalWidths[i]);
+    }
+    this.storeTableWidths(table, id);
+  }
+
+  // Auto-fit every table in the currently active file.
+  autoFitActiveFile() {
+    const file = this.app.workspace.getActiveFile();
+    if (!file) return;
+    let count = 0;
+    for (const leaf of this.app.workspace.getLeavesOfType("markdown")) {
+      const view = leaf.view;
+      if (
+        !view ||
+        !view.file ||
+        view.file.path !== file.path ||
+        !view.contentEl
+      )
+        continue;
+      const tables = view.contentEl.querySelectorAll("table");
+      for (const table of tables) {
+        this.autoFitTable(table);
+        count++;
+      }
+    }
+    new Notice(
+      `XU Table Layout Helper: ${this.t("notice_autofit").replace("{n}", count)}`,
+      2000
+    );
+  }
+
   applyStoredWidths(table, id) {
-    const stored = this.tableWidths[id];
+    let stored = this.tableWidths[id];
+    if (!stored) {
+      // Fallback: match by header hash within the same file. This covers
+      // (a) migrated legacy keys that have no first-data-row hash, and
+      // (b) tables whose first data row changed slightly.
+      const match = id.match(/^(w:[^:]+:\d+:[^:]*):/);
+      if (match) {
+        const prefix = match[1] + ":";
+        const candidate = Object.keys(this.tableWidths).find((k) =>
+          k.startsWith(prefix)
+        );
+        if (candidate) stored = this.tableWidths[candidate];
+      }
+    }
     if (!stored) return;
     table.style.tableLayout = "fixed";
     for (const idx of Object.keys(stored)) {
@@ -515,9 +784,7 @@ class TableLayoutHelperPlugin extends Plugin {
     if (this.widthSaveTimer) clearTimeout(this.widthSaveTimer);
     this.widthSaveTimer = window.setTimeout(() => {
       this.widthSaveTimer = null;
-      this.saveData(
-        Object.assign({}, this.settings, { tableWidths: this.tableWidths })
-      );
+      this.saveMerged();
     }, 500);
   }
 
@@ -534,9 +801,8 @@ class TableLayoutHelperPlugin extends Plugin {
     for (const id of ids) {
       delete this.tableWidths[id];
     }
-    await this.saveData(
-      Object.assign({}, this.settings, { tableWidths: this.tableWidths })
-    );
+    // force=true: do not re-pull deleted keys back from disk
+    await this.saveMerged(true);
     // Clear inline widths on the currently rendered tables of this file
     for (const leaf of this.app.workspace.getLeavesOfType("markdown")) {
       const view = leaf.view;
@@ -814,6 +1080,17 @@ class TableLayoutHelperSettingTab extends PluginSettingTab {
           })
       );
 
+    // Auto-fit button (manual only, never automatic)
+    new Setting(adv)
+      .setName(this.t("setting_autofit"))
+      .setDesc(this.t("setting_autofit_desc"))
+      .addButton((button) =>
+        button
+          .setButtonText(this.t("btn_autofit"))
+          .setCta()
+          .onClick(() => this.plugin.autoFitActiveFile())
+      );
+
     // ---------- Reset ----------
     new Setting(containerEl)
       .setName(this.t("setting_reset"))
@@ -854,3 +1131,5 @@ class TableLayoutHelperSettingTab extends PluginSettingTab {
 
 module.exports = TableLayoutHelperPlugin;
 module.exports.default = TableLayoutHelperPlugin;
+
+/* nosourcemap */

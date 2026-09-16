@@ -17,13 +17,15 @@
 }
 
 /* Drag handle: invisible strip on the right edge of first-row cells;
-   highlighted with the theme accent color on hover / while dragging */
+   highlighted with the theme accent color on hover / while dragging.
+   Clickable area is 16px wide (8px inside + 8px outside the cell) so
+   the user does not have to hunt for a tiny 8px target. */
 .tlh-col-resizer {
 	position: absolute;
 	top: 0;
-	right: -4px;
+	right: -8px;
 	bottom: 0;
-	width: 8px;
+	width: 16px;
 	cursor: col-resize;
 	z-index: 5;
 }
@@ -32,7 +34,7 @@
 	content: "";
 	position: absolute;
 	top: 0;
-	right: 3px;
+	right: 7px;
 	bottom: 0;
 	width: 2px;
 	background: transparent;
@@ -49,4 +51,16 @@ body.tlh-resizing .tlh-col-resizer::after {
 /* Prevent text selection while dragging */
 body.tlh-resizing {
 	user-select: none;
+}
+
+/* Temporary measuring class: force every element inside the table to
+   render on a single line so offsetWidth reflects the true content
+   width. Applied only during auto-fit measurement, removed immediately
+   after. The universal selector with high-priority rules overrides
+   Obsidian's own .internal-link word-break setting. */
+.tlh-measuring,
+.tlh-measuring * {
+	white-space: nowrap !important;
+	word-break: keep-all !important;
+	overflow-wrap: normal !important;
 }

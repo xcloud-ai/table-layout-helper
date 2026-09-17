@@ -8,10 +8,11 @@ Markdown 表格零手写 CSS：全局布局设置可视化配置、实时生效�
 ## 功能特性（中文）
 
 - **表头样式**：首行作为表头（默认开启）/ 首列作为表头，两者可同时开启；表头默认加粗，颜色可选（留空跟随主题）
-- **列宽拖拽**：鼠标悬停表头单元格右边缘出现拖拽手柄，按住拖动即可调整列宽；双击手柄可输入精确像素值
-- **列宽记忆**：每张表格的列宽自动保存，重新打开文件、重启 Obsidian 后自动恢复；增删表格行不影响已保存的宽度
+- **列宽拖拽**：鼠标悬停表头单元格右边缘出现拖拽手柄，按住拖动即可调整列宽，拖拽时实时显示像素值；双击手柄可输入精确像素值
+- **列宽记忆**：每张表格的列宽自动保存，重新打开文件、重启 Obsidian 后自动恢复；增删表格行不影响已保存的宽度；文件删除 / 重命名时自动清理或迁移对应记忆
 - **清除列宽**：命令面板一键清除当前文件所有表格的已保存列宽
-- **自动适配列宽**：一键让当前文件所有表格按内容自动调整列宽，长文本单行显示；左侧功能区图标 / 命令面板 / 设置页按钮三种触发方式
+- **自动适配列宽**：一键让当前文件所有表格按内容自动调整列宽，长文本单行显示；重复点击结果恒定不外扩；左侧功能区图标 / 命令面板 / 设置页按钮三种触发方式
+- **表头吸顶**：长表格滚动时表头固定在顶部，浏览长列表不用回翻表头（默认开启，可关闭）
 - **表格布局**：fixed（固定列宽，推荐）/ auto（自动列宽），表格宽度支持 100% / 像素值
 - **单元格排版**：垂直对齐（上 / 中 / 下）与行高调整
 - **首列宽度**：全局设置首列固定宽度（默认 200px），适合标签列
@@ -22,13 +23,15 @@ Markdown 表格零手写 CSS：全局布局设置可视化配置、实时生效�
 ## Features (English)
 
 - **Header style**: first row as header (on by default) and/or first column as header; headers are always bold, with an optional text color (empty = follow theme)
-- **Column width drag**: hover the right edge of a header cell to grab the drag handle; drag to resize, or double-click the handle to enter an exact pixel value
-- **Width memory**: each table's column widths are saved automatically and restored on reopen; adding or removing rows keeps saved widths intact
+- **Column width drag**: hover the right edge of a header cell to grab the drag handle; drag to resize with a live pixel tooltip, or double-click the handle to enter an exact pixel value
+- **Width memory**: each table's column widths are saved automatically and restored on reopen; adding or removing rows keeps saved widths intact; deleting or renaming a file cleans up or migrates its records
 - **Clear widths**: one command clears all saved column widths in the current file
 - **Table layout**: fixed (recommended) / auto, with table width (100% / pixel value)
 - **Cell layout**: vertical alignment (top / middle / bottom) and line height
 - **First column width**: global fixed width for label-style first columns (200px by default)
 - **Minimum column width**: lower bound while dragging (40px by default)
+- **Auto-fit**: one click fits every table in the current file to single-line content; repeated clicks are idempotent (no growth)
+- **Sticky header**: table headers stay pinned while scrolling long tables (on by default, configurable)
 - **Instant apply**: settings apply immediately in both reading view and live preview
 
 ## 列宽拖拽使用方法
@@ -70,6 +73,7 @@ Open Settings → Community Plugins → Browse, search "Table Layout Helper", in
 | 首行作为表头 / First row as header | 横向表头样式应用于首行 / Horizontal header on the first row | 开 / On |
 | 首列作为表头 / First column as header | 纵向表头样式应用于首列，可与首行同开 / Vertical header on the first column, combinable | 关 / Off |
 | 表头颜色 / Header color | 表头文字颜色，留空跟随主题 / Header text color, empty = theme | #ff4d00 |
+| 表头吸顶 / Sticky header | 长表格滚动时表头吸顶 / Pin table headers while scrolling | 开 / On |
 | 首列宽度 / First column width | 像素值，留空自适应 / Pixels, empty = auto | 200 |
 | 表格布局 / Table layout | fixed / auto | fixed |
 | 表格宽度 / Table width | 100% / 像素值 / 100% / pixels | 100% |
@@ -83,13 +87,13 @@ Commands: toggle plugin, reload styles, clear column widths in current file.
 ## 技术实现 / Technical Notes
 
 - 纯 JavaScript 实现（`main.js`），无需编译；`main.ts` 为 TypeScript 参考
-- 运行时样式通过动态注入 `<style>` 应用，依靠选择器特异性覆盖主题；仅自动适配列宽的临时测量阶段对所有子元素使用高优先级单行规则（覆盖 Obsidian 内部链接的断行设置）
+- 运行时样式通过动态注入 `<style>` 应用，依靠选择器特异性覆盖主题（不使用 `!important`）；仅自动适配列宽的临时测量阶段通过内联样式临时压制换行（覆盖 Obsidian 内部链接的断行设置），测量结束即还原
 - 列宽指纹 = 文件路径 + 列数 + 表头哈希 + 首行数据哈希（不含行号），存于插件自身 `data.json`，不修改笔记内容；旧版含行号的 key 首次加载时自动迁移
 - 拖拽仅在拖动期间挂载 document 级监听，松手即卸载；无轮询、无全库扫描
 - 不使用 Node/Electron API，支持移动端（`isDesktopOnly: false`）
 
 - Pure JavaScript (`main.js`), no build step; `main.ts` is a TypeScript reference
-- Runtime styles are injected via a dynamic `<style>` tag using selector specificity; only the temporary auto-fit measurement phase applies high-priority single-line rules to all child elements (to override Obsidian's internal-link word-break)
+- Runtime styles are injected via a dynamic `<style>` tag using selector specificity (no `!important`); only the temporary auto-fit measurement phase applies inline single-line rules to beat Obsidian's internal-link word-break, reverted right after measuring
 - Column width fingerprint = file path + column count + header hash + first data-row hash (no line number), stored in the plugin's own `data.json`; notes are never modified; legacy line-number keys auto-migrate on first load
 - Document-level drag listeners exist only while dragging; no polling, no vault scans
 - No Node/Electron APIs — mobile supported (`isDesktopOnly: false`)

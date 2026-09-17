@@ -53,6 +53,21 @@ body.tlh-resizing {
 	user-select: none;
 }
 
+/* Live px tooltip shown next to the cursor while dragging a column
+   handle. Follows the theme palette; never intercepts the pointer. */
+.tlh-drag-tip {
+	position: fixed;
+	z-index: 100;
+	padding: 2px 8px;
+	border-radius: 4px;
+	font-size: 12px;
+	white-space: nowrap;
+	pointer-events: none;
+	color: var(--text-on-accent);
+	background-color: var(--interactive-accent);
+	opacity: 0.9;
+}
+
 /* Temporary measuring class: force every element inside the table to
    render on a single line so offsetWidth reflects the true content
    width. Applied only during auto-fit measurement, removed immediately

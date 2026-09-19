@@ -5,6 +5,10 @@
 
 Markdown 表格零手写 CSS：全局布局设置可视化配置、实时生效；每张表格的列宽可直接用鼠标拖动调整并自动持久化。
 
+> English description below for review purposes. / 以下为英文说明，用于过审。
+
+Visual table styling for Markdown tables: header styles (first row / first column / color), drag-to-resize column widths with automatic per-table memory, adaptive fill that keeps tables full-width and responsive, and instant apply in both reading view and live preview — no hand-written CSS.
+
 ## 功能特性
 
 - **表头样式**：首行作为表头（默认开启）/ 首列作为表头，两者可同时开启；表头默认加粗，颜色可选（留空跟随主题）
@@ -34,6 +38,33 @@ Markdown 表格零手写 CSS：全局布局设置可视化配置、实时生效�
 - **Adaptive fill**: stored widths are applied as percentages so tables always fill the page and resize with the window — no horizontal scrollbar (content wraps on narrow pages); switchable to fixed pixels (adaptive by default)
 - **Instant apply**: settings apply immediately in both reading view and live preview
 
+## 安装
+
+### 方式一：从 Obsidian 社区目录安装（推荐）
+
+1. 打开 Obsidian 设置 → 社区插件
+2. 点击「浏览」，搜索 "XU Table Layout Helper"
+3. 点击「安装」，然后「启用」
+
+### 方式二：手动安装
+
+1. 从 [最新 Release](https://github.com/xcloud-ai/table-layout-helper/releases) 下载 `main.js`、`manifest.json`、`styles.css` 三个文件
+2. 在 vault 中创建目录 `.obsidian/plugins/table-layout-helper/`
+3. 将三个文件放入该目录
+4. 打开 Obsidian 设置 → 社区插件，找到 XU Table Layout Helper 并开启
+
+### Installation
+
+**From Obsidian Community Directory:**
+1. Open Obsidian Settings → Community Plugins
+2. Click "Browse" and search for "XU Table Layout Helper"
+3. Click "Install", then "Enable"
+
+**Manual Installation:**
+1. Download `main.js`, `manifest.json`, `styles.css` from the [latest release](https://github.com/xcloud-ai/table-layout-helper/releases)
+2. Put them in `<vault>/.obsidian/plugins/table-layout-helper/`
+3. Enable in Settings → Community Plugins
+
 ## 使用方法
 
 1. 将鼠标悬停到表头单元格的右边缘，出现高亮竖条后按住拖动
@@ -47,28 +78,6 @@ Markdown 表格零手写 CSS：全局布局设置可视化配置、实时生效�
 2. Double-click the handle to type an exact pixel width, press Enter or click Apply
 3. Widths save on mouse release and restore automatically on reopen
 4. Run "Clear table column widths in this file" from the command palette to reset the current file
-
-## 安装
-
-### 方式一：从 Obsidian 社区目录安装（推荐）
-
-1. 打开 Obsidian 设置 → 社区插件，点击「浏览」
-2. 搜索 "XU Table Layout Helper"
-3. 点击「安装」，然后「启用」
-
-1. Open Obsidian Settings → Community Plugins, click "Browse"
-2. Search for "XU Table Layout Helper"
-3. Click "Install", then "Enable"
-
-### 方式二：手动安装
-
-1. 从 [最新 Release](https://github.com/xcloud-ai/table-layout-helper/releases) 下载 `main.js`、`manifest.json`、`styles.css` 三个文件
-2. 在 vault 中创建目录 `.obsidian/plugins/table-layout-helper/` 并放入三个文件
-3. 打开 Obsidian 设置 → 社区插件，找到 XU Table Layout Helper 并开启
-
-1. Download `main.js`, `manifest.json`, `styles.css` from the [latest release](https://github.com/xcloud-ai/table-layout-helper/releases)
-2. Create `<vault>/.obsidian/plugins/table-layout-helper/` and put the three files in it
-3. Enable XU Table Layout Helper in Settings → Community Plugins
 
 ## 设置说明
 
@@ -100,12 +109,6 @@ Markdown 表格零手写 CSS：全局布局设置可视化配置、实时生效�
 - 列宽指纹 = 文件路径 + 列数 + 表头哈希 + 首行数据哈希（不含行号），存于插件自身 `data.json`，不修改笔记内容；旧版含行号的 key 首次加载时自动迁移
 - 拖拽仅在拖动期间挂载 document 级监听，松手即卸载；无轮询、无全库扫描
 - 不使用 Node/Electron API，支持移动端（`isDesktopOnly: false`）
-
-- Pure JavaScript (`main.js`), no build step; `main.ts` is a TypeScript reference
-- Runtime styles are injected via a dynamic `<style>` tag using selector specificity (no `!important`); only the temporary auto-fit measurement phase applies inline single-line rules to beat Obsidian's internal-link word-break, reverted right after measuring
-- Column width fingerprint = file path + column count + header hash + first data-row hash (no line number), stored in the plugin's own `data.json`; notes are never modified; legacy line-number keys auto-migrate on first load
-- Document-level drag listeners exist only while dragging; no polling, no vault scans
-- No Node/Electron APIs — mobile supported (`isDesktopOnly: false`)
 
 ## 许可证
 

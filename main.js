@@ -294,11 +294,17 @@ function generateCSS(settings) {
   // the table editor widget does not need it. Opaque background so
   // scrolled rows do not show through the pinned cells.
   if (settings.stickyHeader) {
+    // Align the opaque sticky background with the theme's table-header
+    // color when available. Themes like Border paint the header grey on
+    // the ROW (thead tr) while this rule paints each th; with different
+    // colors, sub-pixel rounding of percentage column widths lets the row
+    // color bleed through at cell edges — looking like alternating
+    // column backgrounds. Matching the color hides the seam.
     css.push(`.markdown-preview-view table thead th {
   position: sticky;
   top: 0;
   z-index: 1;
-  background-color: var(--background-primary);
+  background-color: var(--table-header-background, var(--background-alt, var(--background-primary)));
 }`);
   }
 

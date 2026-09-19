@@ -1,7 +1,7 @@
 # XU Table Layout Helper
 
 > [!NOTE] 中文说明
-> 表格布局助手：Markdown 表格可视化美化插件，支持表头样式（首行 / 首列 / 颜色）与表格列宽拖拽调整，宽度自动记忆，重开文件不丢失。
+> 表格布局助手：Markdown 表格可视化美化插件，支持表头样式（首行 / 首列 / 颜色）与表格列宽拖拽调整，宽度自动记忆，重开文件不丢失；表格宽度默认自适应铺满页面、跟随窗口缩放。
 
 Markdown 表格零手写 CSS：全局布局设置可视化配置、实时生效；每张表格的列宽可直接用鼠标拖动调整并自动持久化。
 
@@ -12,6 +12,7 @@ Markdown 表格零手写 CSS：全局布局设置可视化配置、实时生效�
 - **列宽记忆**：每张表格的列宽自动保存，重新打开文件、重启 Obsidian 后自动恢复；增删表格行不影响已保存的宽度；文件删除 / 重命名时自动清理或迁移对应记忆
 - **清除列宽**：命令面板一键清除当前文件所有表格的已保存列宽
 - **自动适配列宽**：一键让当前文件所有表格按内容自动调整列宽，长文本单行显示；重复点击结果恒定不外扩；左侧功能区图标 / 命令面板 / 设置页按钮三种触发方式
+- **自适应铺开**：列宽按比例换算为百分比，表格始终铺满页面并跟随窗口动态缩放，无横向滚动条（窄页面内容自动换行）；设置中可切换固定像素模式（默认自适应）
 - **表头吸顶**：长表格滚动时表头固定在顶部，浏览长列表不用回翻表头（默认开启，可关闭）
 - **表格布局**：fixed（固定列宽，推荐）/ auto（自动列宽），表格宽度支持 100% / 像素值
 - **单元格排版**：垂直对齐（上 / 中 / 下）与行高调整
@@ -31,6 +32,7 @@ Markdown 表格零手写 CSS：全局布局设置可视化配置、实时生效�
 - **First column width**: global fixed width for label-style first columns (200px by default)
 - **Minimum column width**: lower bound while dragging (40px by default)
 - **Auto-fit**: one click fits every table in the current file to single-line content; repeated clicks are idempotent (no growth)
+- **Adaptive fill**: stored widths are applied as percentages so tables always fill the page and resize with the window — no horizontal scrollbar (content wraps on narrow pages); switchable to fixed pixels (adaptive by default)
 - **Sticky header**: table headers stay pinned while scrolling long tables (on by default, configurable)
 - **Instant apply**: settings apply immediately in both reading view and live preview
 
@@ -80,6 +82,7 @@ Open Settings → Community Plugins → Browse, search "Table Layout Helper", in
 | 垂直对齐 / Vertical alignment | top / middle / bottom | middle |
 | 行高 / Line height | 单元格文本行高 / Cell text line height | 1.3 |
 | 最小列宽 / Min column width | 拖拽下限 / Drag lower bound | 40 |
+| 宽度模式 / Width mode | 列宽应用方式：自适应铺开（百分比铺满跟随窗口）/ 固定像素 / Adaptive fill (percentage, follows window) / Fixed pixels | 自适应铺开 / Adaptive |
 
 命令 / Commands：切换表格布局助手开关、重新加载表格样式、清除本文件的表格列宽（设置 → 热键可自行绑定）。
 Commands: toggle plugin, reload styles, clear column widths in current file.

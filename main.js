@@ -99,6 +99,10 @@ const I18N = {
     setting_autofit_desc: "点击后将当前文件所有表格列宽调整为内容单行显示",
     btn_autofit: "适配当前文件",
     sec_col_resize: "列宽拖拽",
+    setting_width_mode: "表格宽度模式",
+    setting_width_mode_desc: "自适应铺开：列宽按比例换算为百分比，表格始终铺满页面并跟随窗口缩放（窄页面内容换行，无横向滚动条）；固定像素：列宽为拖拽时的像素值",
+    option_adaptive: "自适应铺开（推荐）",
+    option_fixed: "固定像素",
     setting_min_col_width: "拖拽最小列宽",
     setting_min_col_width_desc: "拖拽/输入列宽的下限（像素）",
     modal_title: "设置列宽",
@@ -173,6 +177,10 @@ const I18N = {
     setting_autofit_desc: "Click to resize all tables in the current file so each column fits its content in one line",
     btn_autofit: "Fit current file",
     sec_col_resize: "Column Resize",
+    setting_width_mode: "Table width mode",
+    setting_width_mode_desc: "Adaptive: stored widths applied as percentages so tables always fill the page and follow window resizes (content wraps when narrow, no horizontal scrollbar); Fixed: pixel widths as dragged",
+    option_adaptive: "Adaptive fill (recommended)",
+    option_fixed: "Fixed pixels",
     setting_min_col_width: "Minimum column width",
     setting_min_col_width_desc: "Lower limit (px) for drag/input resizing",
     modal_title: "Set column width",
@@ -207,6 +215,7 @@ const DEFAULT_SETTINGS = {
 
   // Column resize (drag / double-click input); widths live in
   // this.tableWidths (saved alongside settings, see loadSettings)
+  widthMode: "adaptive", // adaptive | fixed
   minColWidth: 40,
 };
 
@@ -721,19 +730,82 @@ class TableLayoutHelperPlugin extends Plugin {
     }
   }
 
+  // Apply pixel widths as normalized percentages (adaptive fill). The
+  // table takes 100% of its container; each column gets its share of the
+  // total. The browser re-flows automatically on window resize — no
+  // resize listeners needed.
+  applyWidthsAdaptive(table, widths) {
+    const list = widths.filter((w) => Number.isFinite(w) && w > 0);
+    if (list.length === 0) return;
+    const total = list.reduce((a, b) => a + b, 0);
+    if (total <= 0) return;
+    table.style.tableLayout = "fixed";
+    table.style.width = "100%";
+    const cols = table.querySelectorAll("colgroup col");
+    for (let i = 0; i < list.length; i++) {
+      const pct = ((list[i] / total) * 100).toFixed(3) + "%";
+      const col = cols[i];
+      if (col) {
+        col.style.width = pct;
+        col.style.minWidth = "";
+        col.style.maxWidth = "";
+      } else {
+        const rows = table.querySelectorAll("tr");
+        for (const row of rows) {
+          const c = row.querySelectorAll("th, td")[i];
+          if (c) {
+            c.style.width = pct;
+            c.style.minWidth = "";
+            c.style.maxWidth = "";
+          }
+        }
+      }
+    }
+  }
+
+  // Mode-aware batch application for computed pixel arrays (auto-fit).
+  applyWidthsPx(table, widths) {
+    if (this.settings.widthMode === "fixed") {
+      for (let i = 0; i < widths.length; i++) {
+        this.setColWidth(table, i, widths[i]);
+      }
+    } else {
+      this.applyWidthsAdaptive(table, widths);
+    }
+  }
+
   storeTableWidths(table, id) {
+    // Read a column width back from the DOM. In adaptive mode widths are
+    // applied as percentages; convert back to pixels against the table's
+    // current rendered width so stored values stay in pixel space (the
+    // ratio is what matters — pixels are just the storage unit).
+    const readColWidth = (el) => {
+      const raw = el.style.width;
+      if (!raw) return NaN;
+      if (raw.endsWith("%")) {
+        const base =
+          table.clientWidth ||
+          (table.parentElement && table.parentElement.clientWidth) ||
+          0;
+        const pct = parseFloat(raw);
+        return base > 0 && !Number.isNaN(pct)
+          ? Math.round((pct / 100) * base)
+          : NaN;
+      }
+      return parseInt(raw, 10);
+    };
     const cols = table.querySelectorAll("colgroup col");
     const map = {};
     if (cols.length > 0) {
       cols.forEach((col, i) => {
-        const w = parseInt(col.style.width, 10);
+        const w = readColWidth(col);
         if (!Number.isNaN(w)) map[i] = w;
       });
     } else {
       const firstRow = table.querySelector("tr");
       const cells = firstRow ? firstRow.querySelectorAll("th, td") : [];
       cells.forEach((cell, i) => {
-        const w = parseInt(cell.style.width, 10);
+        const w = readColWidth(cell);
         if (!Number.isNaN(w)) map[i] = w;
       });
     }
@@ -764,6 +836,12 @@ class TableLayoutHelperPlugin extends Plugin {
     // immediately instead of a debounce window that can be lost to a
     // quick app close.
     this.saveMerged();
+    // In adaptive mode the drag applied raw pixel widths (with min/max
+    // caps) for direct manipulation; re-apply as percentages right away so
+    // the caps can't keep the table wider than the container.
+    if (this.settings.widthMode !== "fixed") {
+      this.applyStoredWidths(table, id);
+    }
   }
 
   // Auto-fit column widths so every column shows its content in a
@@ -944,9 +1022,7 @@ class TableLayoutHelperPlugin extends Plugin {
     }
 
     table.style.tableLayout = oldLayout || "fixed";
-    for (let i = 0; i < finalWidths.length; i++) {
-      this.setColWidth(table, i, finalWidths[i]);
-    }
+    this.applyWidthsPx(table, finalWidths);
     this.storeTableWidths(table, fitId);
     // Persist the natural widths this fit was computed from so the next
     // fit is idempotent (see the _fit note above).
@@ -1011,9 +1087,55 @@ class TableLayoutHelperPlugin extends Plugin {
     }
     if (!stored) return;
     table.style.tableLayout = "fixed";
-    for (const idx of Object.keys(stored)) {
-      if (idx.startsWith("_")) continue; // meta keys (_ts, _fit), not column indexes
-      this.setColWidth(table, Number(idx), stored[idx]);
+    if (this.settings.widthMode === "fixed") {
+      for (const idx of Object.keys(stored)) {
+        if (idx.startsWith("_")) continue; // meta keys (_ts, _fit), not column indexes
+        this.setColWidth(table, Number(idx), stored[idx]);
+      }
+      return;
+    }
+    // Adaptive fill: normalize the stored pixel widths into percentages
+    // (ratios preserved) so the table always fills its container and
+    // follows window resizes; no min/max caps — they would re-introduce
+    // horizontal overflow on narrow pages.
+    this.applyWidthsAdaptive(
+      table,
+      Object.keys(stored)
+        .filter((idx) => !idx.startsWith("_"))
+        .map((idx) => stored[idx])
+    );
+  }
+
+  // Re-apply stored widths to every rendered table (reading view and
+  // live-preview widgets). Called when the width mode setting changes so
+  // already-rendered tables switch immediately.
+  reapplyAllWidths() {
+    for (const leaf of this.app.workspace.getLeavesOfType("markdown")) {
+      const view = leaf.view;
+      if (!view || !view.contentEl) continue;
+      const tables = view.contentEl.querySelectorAll("table");
+      for (const table of Array.from(tables)) {
+        const path = view.file ? view.file.path : "";
+        const id = table.dataset.tlhTableId || this.getTableId(table, path);
+        if (this.tableWidths[id]) {
+          this.applyStoredWidths(table, id);
+        } else if (this.settings.widthMode === "fixed") {
+          // adaptive -> fixed with no stored widths: drop percentage
+          // styles so the table returns to the native auto layout.
+          const cols = table.querySelectorAll("colgroup col");
+          for (const col of cols) {
+            if (col.style.width.endsWith("%")) {
+              table.style.width = "";
+              for (const c of table.querySelectorAll("colgroup col")) {
+                c.style.width = "";
+                c.style.minWidth = "";
+                c.style.maxWidth = "";
+              }
+              break;
+            }
+          }
+        }
+      }
     }
   }
 
@@ -1333,6 +1455,20 @@ class TableLayoutHelperSettingTab extends PluginSettingTab {
 
     // ---------- Column resize (uncommon) ----------
     new Setting(adv).setName(this.t("sec_col_resize")).setHeading();
+
+    new Setting(adv)
+      .setName(this.t("setting_width_mode"))
+      .setDesc(this.t("setting_width_mode_desc"))
+      .addDropdown((dd) =>
+        dd.addOption("adaptive", this.t("option_adaptive"))
+          .addOption("fixed", this.t("option_fixed"))
+          .setValue(this.plugin.settings.widthMode || "adaptive")
+          .onChange(async (value) => {
+            this.plugin.settings.widthMode = value;
+            await this.plugin.saveSettings();
+            this.plugin.reapplyAllWidths();
+          })
+      );
 
     new Setting(adv)
       .setName(this.t("setting_min_col_width"))

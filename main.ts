@@ -84,8 +84,6 @@ const I18N = {
     setting_overflow_mode_desc: "visible / hidden / scroll / auto",
     setting_max_height: "最大高度",
     setting_max_height_desc: "像素值（如 400px），留空为无限制。与 overflow=scroll 配合使用效果最佳",
-    setting_sticky_header: "粘性表头",
-    setting_sticky_header_desc: "滚动时表头固定在顶部（需配合最大高度 + overflow=scroll）",
     // Settings - styling
     setting_zebra: "斑马纹",
     setting_zebra_desc: "交替行背景色",
@@ -109,7 +107,7 @@ const I18N = {
     tip_1: "1. 本插件自动应用于所有 Markdown 表格",
     tip_2: "2. 修改设置后立即生效，无需重启",
     tip_3: "3. 使用 Ctrl+P → \"切换表格布局助手开关\" 快速开关",
-    tip_4: "4. 推荐配置：长表格使用 overflow=scroll + max-height=400px + sticky-header=on",
+    tip_4: "4. 推荐配置：长表格使用 overflow=scroll + max-height=400px",
     tip_css_title: "替换 CSS 代码片段",
     tip_css_desc: "本插件替换 table-fixed.css 代码片段。启用本插件后请禁用原代码片段。",
   },
@@ -172,8 +170,6 @@ const I18N = {
     setting_overflow_mode_desc: "visible / hidden / scroll / auto",
     setting_max_height: "Max height",
     setting_max_height_desc: "Pixel value (e.g. 400px), leave empty for no limit. Works best with overflow=scroll",
-    setting_sticky_header: "Sticky header",
-    setting_sticky_header_desc: "Header stays on top when scrolling (requires max height + overflow=scroll)",
     // Settings - styling
     setting_zebra: "Zebra stripes",
     setting_zebra_desc: "Alternating row background colors",
@@ -197,7 +193,7 @@ const I18N = {
     tip_1: "1. This plugin applies to all Markdown tables automatically",
     tip_2: "2. Changes apply instantly — no restart needed",
     tip_3: "3. Use Ctrl+P → \"Toggle table layout control\" for quick on/off",
-    tip_4: "4. Recommended: overflow=scroll + max-height=400px + sticky-header=on for long tables",
+    tip_4: "4. Recommended: overflow=scroll + max-height=400px for long tables",
     tip_css_title: "Replaces CSS snippet",
     tip_css_desc: "This plugin replaces the table-fixed.css snippet. Disable the original snippet after enabling this plugin.",
   },
@@ -224,8 +220,6 @@ interface TableFixedSettings {
   overflowMode: "visible" | "hidden" | "scroll" | "auto";
   maxHeight: string;
 
-  // 表头粘性
-  stickyHeader: boolean;
 
   // 斑马纹
   zebraStripes: boolean;
@@ -252,7 +246,6 @@ const DEFAULT_SETTINGS: TableFixedSettings = {
   lineHeight: "1.6",
   overflowMode: "visible",
   maxHeight: "",
-  stickyHeader: false,
   zebraStripes: false,
   zebraColor: "#f8f9fa",
   linkNoWrap: true,

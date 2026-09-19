@@ -13,7 +13,6 @@ Markdown 表格零手写 CSS：全局布局设置可视化配置、实时生效�
 - **清除列宽**：命令面板一键清除当前文件所有表格的已保存列宽
 - **自动适配列宽**：一键让当前文件所有表格按内容自动调整列宽，长文本单行显示；重复点击结果恒定不外扩；左侧功能区图标 / 命令面板 / 设置页按钮三种触发方式
 - **自适应铺开**：列宽按比例换算为百分比，表格始终铺满页面并跟随窗口动态缩放，无横向滚动条（窄页面内容自动换行）；设置中可切换固定像素模式（默认自适应）
-- **表头吸顶**：长表格滚动时表头固定在顶部，浏览长列表不用回翻表头（默认开启，可关闭）
 - **表格布局**：fixed（固定列宽，推荐）/ auto（自动列宽），表格宽度支持 100% / 像素值
 - **单元格排版**：垂直对齐（上 / 中 / 下）与行高调整
 - **首列宽度**：全局设置首列固定宽度（默认 200px），适合标签列
@@ -33,7 +32,6 @@ Markdown 表格零手写 CSS：全局布局设置可视化配置、实时生效�
 - **Minimum column width**: lower bound while dragging (40px by default)
 - **Auto-fit**: one click fits every table in the current file to single-line content; repeated clicks are idempotent (no growth)
 - **Adaptive fill**: stored widths are applied as percentages so tables always fill the page and resize with the window — no horizontal scrollbar (content wraps on narrow pages); switchable to fixed pixels (adaptive by default)
-- **Sticky header**: table headers stay pinned while scrolling long tables (on by default, configurable)
 - **Instant apply**: settings apply immediately in both reading view and live preview
 
 ## 列宽拖拽使用方法
@@ -75,7 +73,6 @@ Open Settings → Community Plugins → Browse, search "Table Layout Helper", in
 | 首行作为表头 / First row as header | 横向表头样式应用于首行 / Horizontal header on the first row | 开 / On |
 | 首列作为表头 / First column as header | 纵向表头样式应用于首列，可与首行同开 / Vertical header on the first column, combinable | 关 / Off |
 | 表头颜色 / Header color | 表头文字颜色，留空跟随主题 / Header text color, empty = theme | #ff4d00 |
-| 表头吸顶 / Sticky header | 长表格滚动时表头吸顶 / Pin table headers while scrolling | 开 / On |
 | 首列宽度 / First column width | 像素值，留空自适应 / Pixels, empty = auto | 200 |
 | 表格布局 / Table layout | fixed / auto | fixed |
 | 表格宽度 / Table width | 100% / 像素值 / 100% / pixels | 100% |

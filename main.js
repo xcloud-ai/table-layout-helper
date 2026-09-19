@@ -73,8 +73,6 @@ const I18N = {
     setting_first_col_header_desc: "纵向表头：样式应用于首列（可与首行同时开启）",
     setting_header_color: "表头颜色",
     setting_header_color_desc: "表头文字颜色，留空跟随主题；表头默认加粗",
-    setting_sticky_header: "长表格固定表头",
-    setting_sticky_header_desc: "滚动时表头吸顶显示（阅读视图与实时预览）",
     // Settings - table layout
     setting_table_layout: "表格布局模式",
     setting_table_layout_desc: "选择表格的列宽分配方式",
@@ -151,8 +149,6 @@ const I18N = {
     setting_first_col_header_desc: "Vertical header: style applies to the first column (can be combined with first row)",
     setting_header_color: "Header color",
     setting_header_color_desc: "Header text color, leave empty to follow theme; header is bold by default",
-    setting_sticky_header: "Sticky header",
-    setting_sticky_header_desc: "Keep the header visible while scrolling long tables (reading view & live preview)",
     // Settings - table layout
     setting_table_layout: "Table layout mode",
     setting_table_layout_desc: "Choose how column widths are allocated",
@@ -211,7 +207,6 @@ const DEFAULT_SETTINGS = {
   headerColor: "#ff4d00",
 
   // Long-table reading aid (see generateCSS)
-  stickyHeader: true,
 
   // Column resize (drag / double-click input); widths live in
   // this.tableWidths (saved alongside settings, see loadSettings)
@@ -289,24 +284,6 @@ function generateCSS(settings) {
 }`);
   }
 
-  // 5. Sticky header: keep thead visible while scrolling long tables.
-  // Preview views only (reading view + live-preview rendered tables) —
-  // the table editor widget does not need it. Opaque background so
-  // scrolled rows do not show through the pinned cells.
-  if (settings.stickyHeader) {
-    // Align the opaque sticky background with the theme's table-header
-    // color when available. Themes like Border paint the header grey on
-    // the ROW (thead tr) while this rule paints each th; with different
-    // colors, sub-pixel rounding of percentage column widths lets the row
-    // color bleed through at cell edges — looking like alternating
-    // column backgrounds. Matching the color hides the seam.
-    css.push(`.markdown-preview-view table thead th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  background-color: var(--table-header-background, var(--background-alt, var(--background-primary)));
-}`);
-  }
 
   return css.join("\n\n");
 }
@@ -1349,19 +1326,6 @@ class TableLayoutHelperSettingTab extends PluginSettingTab {
           .setValue(this.plugin.settings.headerColor)
           .onChange(async (value) => {
             this.plugin.settings.headerColor = value;
-            await this.plugin.saveSettings();
-            this.plugin.injectStyle();
-          })
-      );
-
-    new Setting(containerEl)
-      .setName(this.t("setting_sticky_header"))
-      .setDesc(this.t("setting_sticky_header_desc"))
-      .addToggle((toggle) =>
-        toggle
-          .setValue(this.plugin.settings.stickyHeader)
-          .onChange(async (value) => {
-            this.plugin.settings.stickyHeader = value;
             await this.plugin.saveSettings();
             this.plugin.injectStyle();
           })
